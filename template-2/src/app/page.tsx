@@ -5,6 +5,7 @@ import { Home, User, MoveRight } from "lucide-react";
 import { NavBar } from "@/components/tubelight-navbar";
 import { Hero } from "@/components/animated-hero";
 import { Modal } from "@/components/ui/modal";
+import { motion } from "framer-motion";
 
 export default function HomePage() {
   const [showModal, setShowModal] = useState(false);
@@ -13,6 +14,33 @@ export default function HomePage() {
     { name: "Home", url: "/", icon: Home },
     { name: "About", url: "/about", icon: User },
   ];
+
+  const pathVariants = {
+    hidden: {
+      pathLength: 0,
+      opacity: 0,
+    },
+    visible: {
+      pathLength: 1,
+      opacity: 1,
+      transition: {
+        pathLength: { duration: 2, ease: "easeInOut" },
+        opacity: { duration: 0.5 },
+      },
+    },
+  };
+
+  const glowVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: [0.4, 1, 0.4],
+      transition: {
+        duration: 2,
+        repeat: Infinity,
+        ease: "easeInOut",
+      },
+    },
+  };
 
   return (
     <main className="relative min-h-screen">
@@ -258,14 +286,74 @@ export default function HomePage() {
             </button>
           </div>
 
-          {/* Title */}
-          <h1 className="text-6xl md:text-8xl font-bold tracking-tighter text-center mb-8">
-            <span className="text-white">Better</span>
-            <span className="text-[hsl(var(--accent-blue))]">Path</span>
-          </h1>
+          {/* Title with Animated Path */}
+          <div className="relative flex flex-col items-center w-full max-w-4xl">
+            {/* Title Text */}
+            <h1 className="text-6xl md:text-8xl font-bold tracking-tighter text-center">
+              <span className="text-white">Better</span>
+              <span className="text-[hsl(var(--accent-blue))]">Path</span>
+            </h1>
+
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              className="absolute inset-0 w-full h-full z-20"
+            >
+              {/* Glowing background for the path */}
+              <motion.div
+                variants={glowVariants}
+                className="absolute inset-0 w-full h-full"
+                style={{
+                  filter: "blur(20px)",
+                  transform: "translateZ(0)",
+                }}
+              >
+                <svg
+                  className="w-full h-full"
+                  viewBox="0 0 950 200"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <motion.path
+                    d="M50 100 C200 20, 600 180, 900 100"
+                    stroke="hsl(var(--accent-blue))"
+                    strokeWidth="40"
+                    strokeLinecap="round"
+                    variants={pathVariants}
+                  />
+                </svg>
+              </motion.div>
+
+              {/* Main path */}
+              <svg
+                className="w-full h-full absolute inset-0"
+                viewBox="0 0 950 200"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <motion.path
+                  d="M50 100 C200 20, 600 180, 900 100"
+                  stroke="white"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeDasharray="8,12"
+                  variants={pathVariants}
+                />
+                {/* Arrow head */}
+                <motion.path
+                  d="M880 85 L900 100 L880 115"
+                  stroke="white"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  variants={pathVariants}
+                />
+              </svg>
+            </motion.div>
+          </div>
 
           {/* Animated Text */}
-          <div className="w-full">
+          <div className="w-full mt-16">
             <Hero />
           </div>
         </div>
