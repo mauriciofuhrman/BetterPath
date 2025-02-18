@@ -14,16 +14,12 @@ export function Modal({ isOpen, onClose, children }: ModalProps) {
   console.log("Modal component rendered with isOpen:", isOpen);
 
   useEffect(() => {
-    console.log("Modal useEffect triggered, isOpen:", isOpen);
     if (isOpen) {
-      console.log("Setting body overflow to hidden");
       document.body.style.overflow = "hidden";
     } else {
-      console.log("Setting body overflow to unset");
       document.body.style.overflow = "unset";
     }
     return () => {
-      console.log("Modal useEffect cleanup");
       document.body.style.overflow = "unset";
     };
   }, [isOpen]);
