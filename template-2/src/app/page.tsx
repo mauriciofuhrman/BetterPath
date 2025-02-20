@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Home, User, MoveRight } from "lucide-react";
+import { Home, User } from "lucide-react";
 import { NavBar } from "@/components/tubelight-navbar";
 import { Hero } from "@/components/animated-hero";
 import { Modal } from "@/components/ui/modal";
-import { motion } from "framer-motion";
-
+import { GrowingProblemButton } from "@/components/ui/growing-problem-button";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { AnimatedTitle } from "@/components/animated-title";
 export default function HomePage() {
   const [showModal, setShowModal] = useState(false);
 
@@ -14,33 +16,6 @@ export default function HomePage() {
     { name: "Home", url: "/", icon: Home },
     { name: "About", url: "/about", icon: User },
   ];
-
-  const pathVariants = {
-    hidden: {
-      pathLength: 0,
-      opacity: 0,
-    },
-    visible: {
-      pathLength: 1,
-      opacity: 1,
-      transition: {
-        pathLength: { duration: 2, ease: "easeInOut" },
-        opacity: { duration: 0.5 },
-      },
-    },
-  };
-
-  const glowVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: [0.4, 1, 0.4],
-      transition: {
-        duration: 2,
-        repeat: Infinity,
-        ease: "easeInOut",
-      },
-    },
-  };
 
   return (
     <main className="relative min-h-screen">
@@ -270,91 +245,40 @@ export default function HomePage() {
       {/* Main Content */}
       <div className="container mx-auto pt-32">
         <div className="flex flex-col items-center">
-          {/* Button */}
+          {/* Growing Problem Button */}
+          <GrowingProblemButton
+            onClick={() => setShowModal(true)}
+            isHidden={showModal}
+            className="mb-6"
+          />
+
+          {/* Animated Title */}
+          <AnimatedTitle titleSize="lg" containerWidth="max-w-4xl" />
+
+          {/* Animated Text */}
+          <div className="w-full mt-8">
+            <Hero />
+          </div>
+
+          {/* Auth Buttons */}
           <div
-            className={`relative isolate z-50 mb-6 ${
+            className={`mt-12 flex gap-4 relative z-50 ${
               showModal ? "hidden" : ""
             }`}
           >
-            <button
-              type="button"
-              onClick={() => setShowModal(true)}
-              className="group relative z-50 inline-flex items-center gap-2 px-8 py-3 text-sm font-medium text-white rounded-full bg-[#1a1a1a] hover:bg-[#2a2a2a] transition-all duration-300"
-            >
-              <span>The Growing Problem</span>
-              <MoveRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
-            </button>
-          </div>
-
-          {/* Title with Animated Path */}
-          <div className="relative flex flex-col items-center w-full max-w-4xl">
-            {/* Title Text */}
-            <h1 className="text-6xl md:text-8xl font-bold tracking-tighter text-center">
-              <span className="text-white">Better</span>
-              <span className="text-[hsl(var(--accent-blue))]">Path</span>
-            </h1>
-
-            <motion.div
-              initial="hidden"
-              animate="visible"
-              className="absolute inset-0 w-full h-full z-20"
-            >
-              {/* Glowing background for the path */}
-              <motion.div
-                variants={glowVariants}
-                className="absolute inset-0 w-full h-full"
-                style={{
-                  filter: "blur(20px)",
-                  transform: "translateZ(0)",
-                }}
+            <Link href="/signin" className="relative z-50">
+              <Button
+                variant="outline"
+                className="relative text-white bg-transparent border-white/10 hover:bg-white/5"
               >
-                <svg
-                  className="w-full h-full"
-                  viewBox="0 0 950 200"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <motion.path
-                    d="M50 100 C200 20, 600 180, 900 100"
-                    stroke="hsl(var(--accent-blue))"
-                    strokeWidth="40"
-                    strokeLinecap="round"
-                    variants={pathVariants}
-                  />
-                </svg>
-              </motion.div>
-
-              {/* Main path */}
-              <svg
-                className="w-full h-full absolute inset-0"
-                viewBox="0 0 950 200"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <motion.path
-                  d="M50 100 C200 20, 600 180, 900 100"
-                  stroke="white"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeDasharray="8,12"
-                  variants={pathVariants}
-                />
-                {/* Arrow head */}
-                <motion.path
-                  d="M880 85 L900 100 L880 115"
-                  stroke="white"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  variants={pathVariants}
-                />
-              </svg>
-            </motion.div>
-          </div>
-
-          {/* Animated Text */}
-          <div className="w-full mt-16">
-            <Hero />
+                Sign in
+              </Button>
+            </Link>
+            <Link href="/signup" className="relative z-50">
+              <Button className="relative text-black bg-white hover:bg-white/90">
+                Create account
+              </Button>
+            </Link>
           </div>
         </div>
       </div>

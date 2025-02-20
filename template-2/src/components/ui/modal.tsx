@@ -48,7 +48,7 @@ export function Modal({ isOpen, onClose, children }: ModalProps) {
         >
           <button
             onClick={onClose}
-            className="absolute right-4 top-4 p-2 text-gray-400 hover:text-white transition-colors"
+            className="absolute right-4 top-4 p-2 text-gray-400 hover:text-white transition-colors bg-[#1a1a1a] rounded-full z-50 hover:bg-[#2a2a2a]"
           >
             <X size={24} />
           </button>
