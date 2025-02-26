@@ -1,18 +1,21 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { Hero } from "@/components/animated-hero";
 import { NavBar } from "@/components/tubelight-navbar";
 import { PricingSection } from "@/components/pricing-section";
-import { ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import {
-  BarChart3,
-  LineChart,
-  PieChart,
-  BarChart2,
-  TrendingUp,
   Zap,
+  Scale,
+  TrendingUp,
+  GitMerge,
+  SplitSquareVertical,
+  Layers,
+  Combine,
+  Network,
+  MoveVertical,
 } from "lucide-react";
 import { AnimatedTitle } from "@/components/animated-title";
 import { FeatureCarousel } from "@/components/feature-carousel";
@@ -21,6 +24,30 @@ export default function HomePage() {
   const homeRef = useRef<HTMLDivElement>(null);
   const featuresRef = useRef<HTMLDivElement>(null);
   const pricingRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top on page refresh
+  useEffect(() => {
+    // Scroll to top when the component mounts (page loads/refreshes)
+    window.scrollTo(0, 0);
+
+    // Add beforeunload event to save scroll position
+    const handleBeforeUnload = () => {
+      sessionStorage.setItem("wasRefreshed", "true");
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    // Check if page was refreshed and scroll to top if it was
+    const wasRefreshed = sessionStorage.getItem("wasRefreshed") === "true";
+    if (wasRefreshed) {
+      window.scrollTo(0, 0);
+      sessionStorage.removeItem("wasRefreshed");
+    }
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
 
   const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
     if (ref.current) {
@@ -56,45 +83,77 @@ export default function HomePage() {
   const features = [
     {
       icon: Zap,
-      title: "Real-time Alerts",
+      title: "Free Bet Converter",
       description:
-        "Get instant notifications when profitable opportunities arise across major sportsbooks. Our system continuously monitors odds changes and alerts you the moment a profitable arbitrage opportunity is detected.",
+        "Maximize the value of your free bet credits across all major sportsbooks. Our converter tool calculates the optimal hedge strategy to guarantee profits from free bet promotions, turning bonuses into real cash.",
+    },
+    {
+      icon: Scale,
+      title: "Normal Arbitrage",
+      description:
+        "Identify discrepancies between betting markets to secure guaranteed profits regardless of outcome. Our system continuously scans all major sportsbooks to find and alert you to profitable arbitrage opportunities in real-time.",
     },
     {
       icon: TrendingUp,
-      title: "Advanced Analytics",
+      title: "Positive EV",
       description:
-        "Track your performance with detailed statistics and optimize your betting strategy. Visualize your ROI over time, analyze win rates by sport, and identify your most profitable betting patterns.",
+        "Discover bets with positive expected value to gain a long-term edge. Our algorithm compares true probabilities against bookmaker odds to find markets where the bookmakers have set incorrect lines in your favor.",
     },
     {
-      icon: BarChart3,
-      title: "Expert Support",
+      icon: GitMerge,
+      title: "Parlay Finder",
       description:
-        "Our team of betting experts is available 24/7 to help you maximize your profits. Get personalized advice on betting strategies, risk management, and how to best utilize our platform for your specific goals.",
+        "Build profitable parlay bets with our advanced correlation engine. Our system identifies parlay combinations with higher expected value and alerts you when bookmakers offer inflated odds on correlated events.",
     },
     {
-      icon: LineChart,
-      title: "Arbitrage Finder",
+      icon: SplitSquareVertical,
+      title: "3-Way Arbitrage",
       description:
-        "Automatically identify and compare odds across multiple sportsbooks to find guaranteed profits. Our powerful algorithm calculates the exact stake amounts needed for each bet to lock in profits regardless of outcome.",
+        "Capitalize on three-outcome markets like soccer matches with our specialized 3-way arbitrage scanner. Lock in profits across home, draw, and away outcomes with optimized stake calculations.",
     },
     {
-      icon: PieChart,
-      title: "Bankroll Management",
+      icon: Layers,
+      title: "4-Way Arbitrage",
       description:
-        "Smart tools to help you manage your betting capital and maximize long-term returns. Set budget limits, track deposits and withdrawals across sportsbooks, and get recommendations on optimal bet sizing.",
+        "Take advantage of complex markets with our 4-way arbitrage tool. Perfect for tennis sets, basketball quarters, or other multi-outcome scenarios where market inefficiencies create guaranteed profit opportunities.",
     },
     {
-      icon: BarChart2,
-      title: "Historical Data",
+      icon: Combine,
+      title: "Positive EV SGP",
       description:
-        "Access comprehensive historical data to inform your betting decisions with confidence. Analyze past performance of teams and players, track line movements, and identify valuable betting trends across all major sports.",
+        "Identify single-game parlays with positive expected value. Our proprietary algorithm analyzes correlated outcomes within the same game to find same-game parlay opportunities where bookmakers have mispriced the odds.",
+    },
+    {
+      icon: Network,
+      title: "Combo Positive EV",
+      description:
+        "Discover powerful combinations of positive expected value bets across different games. Our system identifies portfolio-style betting opportunities that maximize your edge while managing variance.",
+    },
+    {
+      icon: MoveVertical,
+      title: "Middling/Low Hold",
+      description:
+        "Find opportunities to middle bets or exploit low-hold markets. Our scanner identifies line movements and price differences that allow you to position yourself to win both sides of a bet or minimize the bookmaker's advantage.",
     },
   ];
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-between">
-      <NavBar items={navItems} className="sm:mt-4" />
+      <div className="w-full relative">
+        {/* Sign In Button */}
+        <div className="absolute top-4 right-4 z-20">
+          <Link href="/signin">
+            <Button
+              variant="outline"
+              className="border-blue-500 text-blue-400 hover:bg-blue-950 hover:text-blue-300"
+            >
+              Sign In
+            </Button>
+          </Link>
+        </div>
+
+        <NavBar items={navItems} className="sm:mt-4" />
+      </div>
 
       <div className="w-full">
         {/* Hero Section with Math/Analytics Background */}

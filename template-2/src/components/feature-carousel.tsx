@@ -27,7 +27,7 @@ export const FeatureCard = ({
       className={`
     transition-all duration-300 ease-in-out
     bg-gray-900/50 p-8 rounded-xl border border-gray-800
-    h-full min-h-[320px] flex flex-col
+    h-full flex flex-col
     ${
       isActive
         ? "transform scale-105 bg-gray-900/80 border-blue-500/50 shadow-lg shadow-blue-500/10 my-4"
@@ -112,13 +112,13 @@ export const FeatureCarousel = ({ features }: FeatureCarouselProps) => {
 
   return (
     <div
-      className="relative py-20"
+      className="relative py-24"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
       {/* Carousel container */}
-      <div className="relative overflow-hidden mx-auto max-w-6xl px-8">
-        <div className="flex justify-center items-center gap-4 md:gap-8 min-h-[450px]">
+      <div className="relative overflow-visible mx-auto max-w-6xl px-8">
+        <div className="flex justify-center items-stretch gap-4 md:gap-8 min-h-[500px]">
           {visibleFeatures.map((feature, idx) => (
             <div
               key={feature.index}
@@ -158,7 +158,7 @@ export const FeatureCarousel = ({ features }: FeatureCarouselProps) => {
       </div>
 
       {/* Feature counter (optional) */}
-      <div className="text-center mt-8 text-gray-500">
+      <div className="text-center mt-12 text-gray-500">
         <span className="text-blue-400">{activeIndex + 1}</span>
         <span> / {features.length}</span>
       </div>

@@ -94,11 +94,13 @@ export function PricingSection() {
           </div>
         </div>
 
-        <Link href="/signin" className="mt-auto">
-          <Button className="w-full bg-blue-600 hover:bg-blue-700">
-            Get Started
-          </Button>
-        </Link>
+        <div className="mt-auto">
+          <Link href="/signin" className="block w-full">
+            <Button className="w-full bg-blue-600 hover:bg-blue-700 relative z-50 cursor-pointer">
+              Get Started
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Premium Plan */}
