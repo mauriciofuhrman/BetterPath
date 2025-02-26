@@ -7,17 +7,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 export default function SignUpPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
     email: "",
     password: "",
-    age: "",
-    phoneNumber: "",
-    zipCode: "",
     acceptTerms: false,
   });
   const [error, setError] = useState("");
@@ -29,26 +25,18 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:3001/api/signup", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          age: parseInt(formData.age),
-          phoneNumber: formData.phoneNumber,
-          zipCode: formData.zipCode,
-        }),
+      if (!formData.email || !formData.password) {
+        throw new Error("Email and password are required");
+      }
+
+      // Sign up with Supabase directly
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to sign up");
+      if (signUpError) {
+        throw new Error(signUpError.message);
       }
 
       // Redirect to sign in page after successful signup
@@ -68,7 +56,7 @@ export default function SignUpPage() {
             Create an account
           </h1>
           <p className="text-gray-400">
-            Join us in making a difference in addiction recovery
+            Join us to get access to exclusive betting opportunities
           </p>
         </div>
 
@@ -80,39 +68,6 @@ export default function SignUpPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName" className="text-gray-200">
-                  First name
-                </Label>
-                <Input
-                  id="firstName"
-                  value={formData.firstName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, firstName: e.target.value })
-                  }
-                  placeholder="John"
-                  required
-                  className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName" className="text-gray-200">
-                  Last name
-                </Label>
-                <Input
-                  id="lastName"
-                  value={formData.lastName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, lastName: e.target.value })
-                  }
-                  placeholder="Doe"
-                  required
-                  className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
-                />
-              </div>
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="email" className="text-gray-200">
                 Email
@@ -145,57 +100,6 @@ export default function SignUpPage() {
                 required
                 className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
               />
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="age" className="text-gray-200">
-                  Age
-                </Label>
-                <Input
-                  id="age"
-                  type="number"
-                  min="18"
-                  max="120"
-                  value={formData.age}
-                  onChange={(e) =>
-                    setFormData({ ...formData, age: e.target.value })
-                  }
-                  required
-                  className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phoneNumber" className="text-gray-200">
-                  Phone number
-                </Label>
-                <Input
-                  id="phoneNumber"
-                  type="tel"
-                  value={formData.phoneNumber}
-                  onChange={(e) =>
-                    setFormData({ ...formData, phoneNumber: e.target.value })
-                  }
-                  placeholder="(555) 555-5555"
-                  required
-                  className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="zipCode" className="text-gray-200">
-                  ZIP code
-                </Label>
-                <Input
-                  id="zipCode"
-                  value={formData.zipCode}
-                  onChange={(e) =>
-                    setFormData({ ...formData, zipCode: e.target.value })
-                  }
-                  placeholder="12345"
-                  required
-                  className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
-                />
-              </div>
             </div>
           </div>
 

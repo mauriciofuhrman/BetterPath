@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -24,28 +25,19 @@ export default function SignInPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:3001/api/signin", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to sign in");
+      if (!formData.email || !formData.password) {
+        throw new Error("Email and password are required");
       }
 
-      // Store the token in localStorage if remember me is checked
-      if (formData.rememberMe) {
-        localStorage.setItem("token", data.token);
-      } else {
-        sessionStorage.setItem("token", data.token);
+      // Sign in with Supabase directly
+      const { data, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
+
+      if (signInError) {
+        throw new Error(signInError.message);
       }
 
       // Redirect to home page after successful login
@@ -65,7 +57,7 @@ export default function SignInPage() {
             Welcome back
           </h1>
           <p className="text-gray-400">
-            Enter your credentials to access your account
+            Sign in to access your betting opportunities
           </p>
         </div>
 

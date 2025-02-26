@@ -2,15 +2,12 @@
 
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface NavItem {
+export interface NavItem {
   name: string;
-  url: string;
-  icon: LucideIcon;
+  sectionRef: React.RefObject<HTMLDivElement>;
+  action: () => void;
 }
 
 interface NavBarProps {
@@ -19,16 +16,8 @@ interface NavBarProps {
 }
 
 export function NavBar({ items, className }: NavBarProps) {
-  const pathname = usePathname();
-  const [activeTab, setActiveTab] = useState("");
+  const [activeTab, setActiveTab] = useState(items[0].name);
   const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const currentItem = items.find((item) => item.url === pathname);
-    if (currentItem) {
-      setActiveTab(currentItem.name);
-    }
-  }, [pathname, items]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -40,6 +29,35 @@ export function NavBar({ items, className }: NavBarProps) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Add scroll event listener to update active tab based on section visibility
+  useEffect(() => {
+    const handleScroll = () => {
+      // Find the section that's currently most visible in the viewport
+      let mostVisibleSection = items[0];
+      let maxVisibility = 0;
+
+      items.forEach((item) => {
+        if (item.sectionRef.current) {
+          const rect = item.sectionRef.current.getBoundingClientRect();
+          // Calculate how much of the section is visible (as a percentage of viewport height)
+          const visibleHeight =
+            Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+          const visibility = Math.max(0, visibleHeight / window.innerHeight);
+
+          if (visibility > maxVisibility) {
+            maxVisibility = visibility;
+            mostVisibleSection = item;
+          }
+        }
+      });
+
+      setActiveTab(mostVisibleSection.name);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [items]);
+
   return (
     <div
       className={cn(
@@ -49,14 +67,15 @@ export function NavBar({ items, className }: NavBarProps) {
     >
       <div className="flex items-center gap-3 bg-background/5 border border-border backdrop-blur-lg py-1 px-1 rounded-full shadow-lg">
         {items.map((item) => {
-          const Icon = item.icon;
           const isActive = activeTab === item.name;
 
           return (
-            <Link
+            <button
               key={item.name}
-              href={item.url}
-              onClick={() => setActiveTab(item.name)}
+              onClick={() => {
+                setActiveTab(item.name);
+                item.action();
+              }}
               className={cn(
                 "relative cursor-pointer text-sm font-semibold px-6 py-2 rounded-full transition-colors",
                 "text-foreground/80 hover:text-primary",
@@ -64,9 +83,6 @@ export function NavBar({ items, className }: NavBarProps) {
               )}
             >
               <span className="hidden md:inline">{item.name}</span>
-              <span className="md:hidden">
-                <Icon size={18} strokeWidth={2.5} />
-              </span>
               {isActive && (
                 <motion.div
                   layoutId="lamp"
@@ -85,7 +101,7 @@ export function NavBar({ items, className }: NavBarProps) {
                   </div>
                 </motion.div>
               )}
-            </Link>
+            </button>
           );
         })}
       </div>
