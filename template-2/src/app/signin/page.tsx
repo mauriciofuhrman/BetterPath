@@ -5,12 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/auth-provider";
 
 export default function SignInPage() {
   const router = useRouter();
+  const { isLoggedIn, refreshAuth } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -18,6 +20,64 @@ export default function SignInPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [authSuccess, setAuthSuccess] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("Signing you in...");
+  const [redirectAttempts, setRedirectAttempts] = useState(0);
+
+  // Check if already authenticated on page load
+  useEffect(() => {
+    if (isLoggedIn) {
+      console.log("Already logged in, redirecting to dashboard");
+      setAuthSuccess(true);
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 1000);
+    }
+  }, [isLoggedIn, router]);
+
+  // Handle redirect attempts with fallback
+  useEffect(() => {
+    if (authSuccess && redirectAttempts < 3) {
+      const timer = setTimeout(() => {
+        setRedirectAttempts((prev) => prev + 1);
+        setLoadingMessage(
+          `Syncing authentication (attempt ${redirectAttempts + 1}/3)...`
+        );
+
+        // Try to refresh auth state
+        refreshAuth()
+          .then(() => {
+            // After refresh, send a direct request to check cookie state
+            return fetch("/api/auth/sync", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: {
+                "Cache-Control": "no-cache",
+              },
+            }).then((res) => res.json());
+          })
+          .then((data) => {
+            console.log("Auth sync response:", data);
+            // If server says we're authenticated, proceed to dashboard
+            if (data.authenticated) {
+              router.push("/dashboard");
+            } else if (redirectAttempts >= 2) {
+              // On last attempt, try direct navigation
+              window.location.href = "/dashboard";
+            }
+          })
+          .catch((err) => {
+            console.error("Error during auth refresh:", err);
+            if (redirectAttempts >= 2) {
+              // Last attempt - try direct navigation
+              window.location.href = "/dashboard";
+            }
+          });
+      }, 2000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [authSuccess, redirectAttempts, refreshAuth, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +89,9 @@ export default function SignInPage() {
         throw new Error("Email and password are required");
       }
 
-      // Sign in with Supabase directly
+      console.log("Attempting sign in with email:", formData.email);
+
+      // Sign in with Supabase
       const { data, error: signInError } =
         await supabase.auth.signInWithPassword({
           email: formData.email,
@@ -37,17 +99,77 @@ export default function SignInPage() {
         });
 
       if (signInError) {
+        console.error("Supabase sign-in error:", signInError);
         throw new Error(signInError.message);
       }
 
-      // Redirect to home page after successful login
-      router.push("/");
+      if (data.session) {
+        console.log("Sign in successful, user:", data.session.user.email);
+        setAuthSuccess(true);
+        setLoadingMessage("Authentication successful! Syncing...");
+
+        // Enhanced session handling after successful sign-in
+        // Set session data manually if needed
+        localStorage.setItem(
+          "supabase.auth.token",
+          JSON.stringify(data.session)
+        );
+
+        // Force refresh global auth state
+        await refreshAuth();
+
+        // Explicitly sync with server
+        const syncResponse = await fetch("/api/auth/sync", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+          },
+          body: JSON.stringify({
+            refreshed: true,
+            timestamp: new Date().toISOString(),
+          }),
+        });
+
+        console.log("Server sync response:", await syncResponse.json());
+
+        // Start the redirect process with retries
+        setRedirectAttempts(1);
+      } else {
+        throw new Error("Sign in succeeded but no session was returned");
+      }
     } catch (err) {
+      console.error("Sign in error:", err);
       setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
       setLoading(false);
+      setAuthSuccess(false);
     }
   };
+
+  if (authSuccess) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-[#0a0a0a]">
+        <div className="text-center space-y-4">
+          <div className="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent mx-auto"></div>
+          <h2 className="text-xl font-medium text-white">{loadingMessage}</h2>
+          <p className="text-gray-400">
+            {redirectAttempts < 3
+              ? "You'll be redirected to the dashboard momentarily"
+              : "If you are not redirected automatically, click the button below"}
+          </p>
+          {redirectAttempts >= 3 && (
+            <Button
+              onClick={() => (window.location.href = "/dashboard")}
+              className="mt-4 bg-blue-600 hover:bg-blue-700"
+            >
+              Go to Dashboard
+            </Button>
+          )}
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-[#0a0a0a]">

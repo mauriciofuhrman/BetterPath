@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, LucideIcon } from "lucide-react";
+import Link from "next/link";
 
 interface Feature {
   icon: LucideIcon;
@@ -22,6 +23,9 @@ export const FeatureCard = ({
   description,
   isActive,
 }: FeatureCardProps) => {
+  // Convert title to URL path
+  const featurePath = `/${title.toLowerCase().replace(/\s+/g, "-")}`;
+
   return (
     <div
       className={`
@@ -53,7 +57,9 @@ export const FeatureCard = ({
         {title}
       </h3>
       <p
-        className={`${isActive ? "text-gray-300" : "text-gray-400"} flex-grow`}
+        className={`${
+          isActive ? "text-gray-300" : "text-gray-400"
+        } flex-grow mb-6`}
       >
         {description}
       </p>

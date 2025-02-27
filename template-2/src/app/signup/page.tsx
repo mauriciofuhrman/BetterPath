@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -18,6 +18,20 @@ export default function SignUpPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState(false);
+
+  // Check if already authenticated on page load
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        // If already authenticated, redirect to dashboard
+        router.push("/dashboard");
+      }
+    };
+
+    checkAuth();
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +43,7 @@ export default function SignUpPage() {
         throw new Error("Email and password are required");
       }
 
-      // Sign up with Supabase directly
+      // Sign up with Supabase
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -39,14 +53,51 @@ export default function SignUpPage() {
         throw new Error(signUpError.message);
       }
 
-      // Redirect to sign in page after successful signup
-      router.push("/signin");
+      setSignupSuccess(true);
+
+      // If auto sign-in after signup worked (session created)
+      if (data.session) {
+        // Sync cookies with server
+        await fetch("/api/auth/sync", {
+          method: "POST",
+          credentials: "include",
+        });
+
+        // Redirect to dashboard after a slight delay
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 1000);
+      } else {
+        // If confirmation is required, redirect to signin
+        setTimeout(() => {
+          router.push("/signin");
+        }, 2000);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
       setLoading(false);
     }
   };
+
+  if (signupSuccess) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-[#0a0a0a]">
+        <div className="w-full max-w-md text-center space-y-4 p-6 bg-gray-900/50 rounded-lg border border-gray-800">
+          <div className="text-green-500 text-5xl mb-4">✓</div>
+          <h2 className="text-2xl font-bold text-white">Account Created!</h2>
+          <p className="text-gray-300">
+            Your account has been successfully created.
+          </p>
+          <p className="text-gray-400 text-sm">
+            You'll be redirected to the dashboard shortly...
+          </p>
+          <div className="animate-pulse mt-4">
+            <div className="h-1 bg-blue-500 rounded w-full max-w-xs mx-auto"></div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-[#0a0a0a]">

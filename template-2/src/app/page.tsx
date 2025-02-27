@@ -55,31 +55,6 @@ export default function HomePage() {
     }
   };
 
-  const navItems = [
-    // home
-    {
-      name: "Home",
-      action: () => scrollToSection(homeRef),
-      sectionRef: homeRef,
-    },
-    {
-      name: "Tools",
-      action: () => scrollToSection(featuresRef),
-      sectionRef: featuresRef,
-    },
-    {
-      name: "Pricing",
-      action: () => scrollToSection(pricingRef),
-      sectionRef: pricingRef,
-    },
-  ];
-
-  const heroTitles = [
-    "Let Math Do The Winning",
-    "Proven By The Numbers",
-    "Win The Long Game",
-  ];
-
   const features = [
     {
       icon: Zap,
@@ -135,6 +110,39 @@ export default function HomePage() {
       description:
         "Find opportunities to middle bets or exploit low-hold markets. Our scanner identifies line movements and price differences that allow you to position yourself to win both sides of a bet or minimize the bookmaker's advantage.",
     },
+  ];
+
+  // Create dropdown items from features
+  const featureDropdownItems = features.map((feature) => ({
+    title: feature.title,
+    path: `/tools/${feature.title.toLowerCase().replace(/\s+/g, "-")}`,
+  }));
+
+  const navItems = [
+    // home
+    {
+      name: "Home",
+      action: () => scrollToSection(homeRef),
+      sectionRef: homeRef,
+    },
+    {
+      name: "Tools",
+      action: () => scrollToSection(featuresRef),
+      sectionRef: featuresRef,
+      hasDropdown: true,
+      dropdownItems: featureDropdownItems,
+    },
+    {
+      name: "Pricing",
+      action: () => scrollToSection(pricingRef),
+      sectionRef: pricingRef,
+    },
+  ];
+
+  const heroTitles = [
+    "Let Math Do The Winning",
+    "Proven By The Numbers",
+    "Win The Long Game",
   ];
 
   return (
