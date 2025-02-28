@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 export default function SignUpPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
+    name: "",
     email: "",
     password: "",
     acceptTerms: false,
@@ -39,40 +40,53 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
-      if (!formData.email || !formData.password) {
-        throw new Error("Email and password are required");
+      if (!formData.email || !formData.password || !formData.name) {
+        throw new Error("Name, email, and password are required");
       }
 
       // Sign up with Supabase
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
+        options: {
+          data: {
+            name: formData.name,
+          },
+          // Skip email verification for now to streamline the payment flow
+          emailRedirectTo: `${window.location.origin}/payment`,
+        },
       });
 
       if (signUpError) {
         throw new Error(signUpError.message);
       }
 
-      setSignupSuccess(true);
+      if (!data.user) {
+        throw new Error("Failed to create user account");
+      }
 
-      // If auto sign-in after signup worked (session created)
-      if (data.session) {
-        // Sync cookies with server
-        await fetch("/api/auth/sync", {
-          method: "POST",
-          credentials: "include",
+      // Create subscription record with pending status
+      const { error: subscriptionError } = await supabase
+        .from("subscriptions")
+        .insert({
+          id: data.user.id,
+          status: "pending", // Changed from "incomplete" to better reflect status
         });
 
-        // Redirect to dashboard after a slight delay
-        setTimeout(() => {
-          router.push("/dashboard");
-        }, 1000);
-      } else {
-        // If confirmation is required, redirect to signin
-        setTimeout(() => {
-          router.push("/signin");
-        }, 2000);
+      if (subscriptionError) {
+        console.error(
+          "Failed to create subscription record",
+          subscriptionError
+        );
+        // Continue with the flow even if subscription record creation fails
       }
+
+      setSignupSuccess(true);
+
+      // Always redirect to payment page directly
+      setTimeout(() => {
+        router.push(`/payment?userId=${data.user?.id}`);
+      }, 1000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       setLoading(false);
@@ -89,7 +103,7 @@ export default function SignUpPage() {
             Your account has been successfully created.
           </p>
           <p className="text-gray-400 text-sm">
-            You'll be redirected to the dashboard shortly...
+            You'll be redirected to the payment page shortly...
           </p>
           <div className="animate-pulse mt-4">
             <div className="h-1 bg-blue-500 rounded w-full max-w-xs mx-auto"></div>
@@ -119,6 +133,23 @@ export default function SignUpPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-gray-200">
+                Name
+              </Label>
+              <Input
+                id="name"
+                type="text"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                placeholder="John Doe"
+                required
+                className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
+              />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="email" className="text-gray-200">
                 Email

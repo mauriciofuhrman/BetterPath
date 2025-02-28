@@ -96,9 +96,46 @@ export async function middleware(request: NextRequest) {
     const isAuthRoute = path === "/signin" || path === "/signup";
     const isHomePage = path === "/";
     const isDashboardPage = path === "/dashboard";
+    const isPaymentRoute = path === "/payment" || path === "/payment-success";
+    const isPublicRoute = isAuthRoute || isHomePage || isPaymentRoute;
 
-    // Redirect based on auth state
+    // Check if route is a protected tool route
+    const isToolRoute = path.startsWith("/tools/");
+    const isProtectedRoute =
+      path.startsWith("/dashboard") ||
+      path === "/positive-ev" ||
+      path === "/normal-arbitrage" ||
+      path === "/free-bet-converter";
+
+    // Handle authentication
     if (isLoggedIn) {
+      // Check subscription status for protected routes
+      if (isProtectedRoute || isToolRoute) {
+        const { data: subscription, error: subError } = await supabase
+          .from("subscriptions")
+          .select("status")
+          .eq("id", session.user.id)
+          .single();
+
+        // Handle database errors gracefully
+        if (subError && subError.code !== "PGRST116") {
+          console.error("Error checking subscription:", subError);
+          // Continue without blocking - fail open in case of DB issues
+        }
+        // Redirect to payment if no active subscription
+        else if (!subscription || subscription.status !== "active") {
+          console.log(
+            "User does not have active subscription, redirecting to payment"
+          );
+          // If in payment flow, let them continue, otherwise redirect to payment
+          if (!isPaymentRoute) {
+            return NextResponse.redirect(
+              new URL(`/payment?userId=${session.user.id}`, request.url)
+            );
+          }
+        }
+      }
+
       // Redirect from auth routes to dashboard when logged in
       if (isAuthRoute) {
         console.log(
@@ -106,18 +143,12 @@ export async function middleware(request: NextRequest) {
         );
         return NextResponse.redirect(new URL("/dashboard", request.url));
       }
-      // Redirect from homepage to dashboard when logged in
-      if (isHomePage) {
-        console.log(
-          "Redirecting authenticated user from homepage to dashboard"
-        );
-        return NextResponse.redirect(new URL("/dashboard", request.url));
-      }
     } else {
-      // Redirect from dashboard to sign-in when not logged in
-      if (isDashboardPage) {
+      // Redirect from protected routes to sign-in when not logged in
+      // Allow tool routes to be accessible with blurred content
+      if (isProtectedRoute && !isToolRoute) {
         console.log(
-          "Redirecting unauthenticated user from dashboard to signin"
+          "Redirecting unauthenticated user from protected route to signin"
         );
         return NextResponse.redirect(new URL("/signin", request.url));
       }
@@ -136,11 +167,15 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/",
-    "/dashboard",
+    "/dashboard/:path*",
     "/signin",
     "/signup",
+    "/payment",
+    "/payment-success",
     "/auth-check",
+    "/tools/:path*",
     "/free-bet-converter",
     "/normal-arbitrage",
+    "/positive-ev",
   ],
 };
