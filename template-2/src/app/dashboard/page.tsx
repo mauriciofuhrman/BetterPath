@@ -17,6 +17,7 @@ import {
   MoveVertical,
   LogOut,
   User,
+  Eye,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -99,6 +100,12 @@ export default function DashboardPage() {
       title: "Middling/Low Hold",
       description: "Exploit line movements to middle bets or find low holds",
       path: "/tools/middling-low-hold",
+    },
+    {
+      icon: Eye,
+      title: "Odds Viewer",
+      description: "View all current bets available across major sportsbooks",
+      path: "/tools/odds-viewer",
     },
   ];
 

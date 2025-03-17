@@ -16,6 +16,7 @@ import {
   Combine,
   Network,
   MoveVertical,
+  Eye,
 } from "lucide-react";
 import { AnimatedTitle } from "@/components/animated-title";
 import { FeatureCarousel } from "@/components/feature-carousel";
@@ -109,6 +110,12 @@ export default function HomePage() {
       title: "Middling/Low Hold",
       description:
         "Find opportunities to middle bets or exploit low-hold markets. Our scanner identifies line movements and price differences that allow you to position yourself to win both sides of a bet or minimize the bookmaker's advantage.",
+    },
+    {
+      icon: Eye,
+      title: "Odds Viewer",
+      description:
+        "Access a comprehensive view of all current bets available across major sportsbooks. Our Odds Viewer provides real-time odds comparison, helping you identify the best lines and betting opportunities at a glance.",
     },
   ];
 
