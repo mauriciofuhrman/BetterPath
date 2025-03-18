@@ -29,10 +29,6 @@ export const SPORTSBOOKS = [
 // Bet type definitions - simplified to match real data structure
 export const BET_TYPES = [
   {
-    id: "all",
-    name: "All Bets",
-  },
-  {
     id: "moneyline",
     name: "Moneyline",
   },

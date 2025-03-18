@@ -1,142 +1,87 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Game } from "@/lib/types";
-import { formatTime } from "@/lib/utils";
-import dynamic from "next/dynamic";
-import Image from "next/image";
+import { TeamLogo } from "./TeamLogo";
 
 interface GameCardProps {
   game: Game;
-  isSelected: boolean;
+  isActive: boolean;
   onClick: () => void;
 }
 
-// Create a component to handle logo rendering with proper caching
-// Add interface for the logo component
-interface LogoComponentProps {
-  size?: number;
-}
-
-const TeamLogo = ({
-  abbreviation,
-  size = 32,
-}: {
-  abbreviation: string;
-  size?: number;
-}) => {
-  // Use useMemo to cache the component and prevent re-creation on re-renders
-  const LogoComponent = useMemo(() => {
-    return dynamic<LogoComponentProps>(
-      () => import("react-nba-logos").then((mod) => mod[abbreviation]),
-      {
-        loading: () => (
-          <div
-            className={`w-${size / 4} h-${
-              size / 4
-            } bg-gray-200 dark:bg-gray-700 rounded-full`}
-          ></div>
-        ),
-        ssr: false,
-      }
-    );
-  }, [abbreviation]);
-
-  return <LogoComponent size={size} />;
-};
-
-export const GameCard: React.FC<GameCardProps> = ({
-  game,
-  isSelected,
-  onClick,
-}) => {
-  const { homeTeam, awayTeam, date, time, status, odds } = game;
-
-  // Status-based styling
-  const getStatusColor = () => {
-    switch (status.toLowerCase()) {
-      case "live":
-        return "bg-red-500";
-      case "upcoming":
-        return "bg-blue-500";
-      case "final":
-        return "bg-gray-500";
-      default:
-        return "bg-blue-500";
+const GameCard: React.FC<GameCardProps> = ({ game, isActive, onClick }) => {
+  // Ensure we have valid date and time for display
+  const dateTimeDisplay = () => {
+    if (!game.date || !game.time || game.date.includes("Invalid")) {
+      return "Time TBD";
     }
+    return `${game.date} • ${game.time}`;
   };
+
+  // Format team names as "Away Team @ Home Team"
+  const gameTitle = `${game.awayTeam.name} @ ${game.homeTeam.name}`;
 
   return (
     <div
+      className={`p-4 mb-4 rounded-md cursor-pointer transition-all duration-200 border ${
+        isActive
+          ? "border-blue-500 bg-blue-900/30"
+          : "border-gray-700 hover:border-gray-500 bg-gray-900"
+      }`}
       onClick={onClick}
-      className={`
-        bg-gray-900 text-white rounded-lg 
-        shadow-md p-4 mb-4 cursor-pointer
-        transition-all duration-200 ease-in-out 
-        hover:bg-gray-800
-        ${
-          isSelected
-            ? "border-l-4 border-blue-500"
-            : "border-l-4 border-transparent"
-        }
-      `}
+      title={gameTitle}
     >
-      <div className="flex justify-between items-center mb-2">
-        <div className="text-sm text-gray-400">
-          {date} • {formatTime(time)}
+      <div className="text-xs text-gray-400 mb-2">
+        <span>{dateTimeDisplay()}</span>
+      </div>
+
+      <div className="flex items-center mb-3">
+        <div className="flex-shrink-0 w-10 h-10">
+          <TeamLogo abbreviation={game.awayTeam.abbreviation} size={40} />
         </div>
-        <div
-          className={`px-2 py-1 rounded-full text-xs font-medium text-white ${getStatusColor()}`}
-        >
-          {status}
+        <div className="ml-3">
+          <div className="flex items-center">
+            <span className="font-bold text-white">{game.awayTeam.name}</span>
+            {game.awayTeam.score !== undefined && (
+              <span className="ml-auto font-bold text-white">
+                {game.awayTeam.score}
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-gray-400">{game.awayTeam.record}</div>
         </div>
       </div>
 
-      <div className="space-y-3">
-        {/* Away Team */}
-        <div className="flex items-center">
-          <div className="w-8 h-8 flex-shrink-0 mr-3">
-            <TeamLogo abbreviation={awayTeam.abbreviation} size={32} />
-          </div>
-          <div className="flex-grow">
-            <div className="font-semibold">{awayTeam.name}</div>
-            <div className="text-xs text-gray-500">{awayTeam.record}</div>
-          </div>
-          {awayTeam.score !== undefined && (
-            <div className="text-xl font-bold">{awayTeam.score}</div>
-          )}
+      <div className="flex items-center">
+        <div className="flex-shrink-0 w-10 h-10">
+          <TeamLogo abbreviation={game.homeTeam.abbreviation} size={40} />
         </div>
-
-        {/* Home Team */}
-        <div className="flex items-center">
-          <div className="w-8 h-8 flex-shrink-0 mr-3">
-            <TeamLogo abbreviation={homeTeam.abbreviation} size={32} />
+        <div className="ml-3">
+          <div className="flex items-center">
+            <span className="font-bold text-white">{game.homeTeam.name}</span>
+            {game.homeTeam.score !== undefined && (
+              <span className="ml-auto font-bold text-white">
+                {game.homeTeam.score}
+              </span>
+            )}
           </div>
-          <div className="flex-grow">
-            <div className="font-semibold">{homeTeam.name}</div>
-            <div className="text-xs text-gray-500">{homeTeam.record}</div>
-          </div>
-          {homeTeam.score !== undefined && (
-            <div className="text-xl font-bold">{homeTeam.score}</div>
-          )}
+          <div className="text-xs text-gray-400">{game.homeTeam.record}</div>
         </div>
       </div>
 
-      {/* Basic Odds Preview */}
-      {odds && (
-        <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-gray-700">
-          <div className="text-xs">
-            <div className="text-gray-400">Spread</div>
-            <div className="font-medium">{odds.spread}</div>
-          </div>
-          <div className="text-xs">
-            <div className="text-gray-400">Total</div>
-            <div className="font-medium">{odds.total}</div>
-          </div>
-          <div className="text-xs">
-            <div className="text-gray-400">ML</div>
-            <div className="font-medium">{odds.moneyline}</div>
-          </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-gray-300 pt-2 border-t border-gray-700">
+        <div>
+          <div className="text-gray-500">Spread</div>
+          <div>{game.odds.spread || "N/A"}</div>
         </div>
-      )}
+        <div>
+          <div className="text-gray-500">Total</div>
+          <div>{game.odds.total || "N/A"}</div>
+        </div>
+        <div>
+          <div className="text-gray-500">ML</div>
+          <div>{game.odds.moneyline || "N/A"}</div>
+        </div>
+      </div>
     </div>
   );
 };

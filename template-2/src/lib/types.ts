@@ -37,6 +37,14 @@ export interface DetailedOdds {
   moneyline: {
     away: BookOdds;
     home: BookOdds;
+    bestOdds?: {
+      home: Record<string, boolean>;
+      away: Record<string, boolean>;
+    };
+    bookLinks?: {
+      home: Record<string, string>;
+      away: Record<string, string>;
+    };
   };
   firstQuarter?: {
     spread: {
