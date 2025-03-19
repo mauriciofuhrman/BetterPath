@@ -7,12 +7,18 @@ import { useAuth } from "@/hooks/use-auth";
 import { Calendar, Clock, RefreshCw } from "lucide-react";
 import Image from "next/image";
 import MoneylineOddsGrid from "@/components/nba-odds/MoneylineOddsGrid";
-import { Header, GamesList } from "@/components/nba-odds";
+import SpreadOddsGrid from "@/components/nba-odds/SpreadOddsGrid";
+import TotalOddsGrid from "@/components/nba-odds/TotalOddsGrid";
+import PlayerPropsGrid from "@/components/nba-odds/PlayerPropsGrid";
+import { Header } from "@/components/nba-odds";
 import { Game } from "@/lib/types";
 import { mockGames } from "@/lib/mock-data";
 import {
   getGames,
   getBatchMoneylineOdds,
+  getBatchSpreadOdds,
+  getBatchTotals,
+  getBatchPlayerProps,
   Game as SupabaseGame,
 } from "@/lib/supabase-utils";
 import GameCard from "@/components/nba-odds/GameCard";
@@ -229,10 +235,15 @@ export default function OddsViewerPage() {
   const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
   const [games, setGames] = useState<Game[]>(mockGames);
   const [loading, setLoading] = useState(true);
-  const [betTypeFilter, setBetTypeFilter] = useState("all"); // Keeping state for future implementation
+  const [totalsLoading, setTotalsLoading] = useState(false);
+  const [playerPropsLoading, setPlayerPropsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [error, setError] = useState<string | null>(null);
+  const [betTypeFilter, setBetTypeFilter] = useState("all"); // Keeping state for future implementation
+  const [oddsView, setOddsView] = useState<
+    "moneyline" | "spread" | "total" | "playerProps"
+  >("moneyline");
 
   // Find the selected game
   const selectedGame = selectedGameId
@@ -257,17 +268,41 @@ export default function OddsViewerPage() {
 
       if (gamesData && gamesData.length > 0) {
         const gameIds = gamesData.map((game) => game.game_id);
-        const allMoneyLineOdds = await getBatchMoneylineOdds(gameIds);
-        console.log(allMoneyLineOdds);
-        // Transform the Supabase games to our Game format
 
-        // Sort games chronologically
+        // Fetch moneyline and spread odds first (fast)
+        const [allMoneyLineOdds, allSpreadOdds] = await Promise.all([
+          getBatchMoneylineOdds(gameIds),
+          getBatchSpreadOdds(gameIds),
+        ]);
+
+        console.log("Moneyline odds:", allMoneyLineOdds);
+        console.log("Spread odds:", allSpreadOdds);
+
+        // Initialize with empty totals for now
+        let allGameTotals: Record<
+          string,
+          Array<{ over: any | null; under: any | null }>
+        > = {};
+        gameIds.forEach((id) => {
+          allGameTotals[id] = [];
+        });
+
+        // Transform the Supabase games to our Game format
         const transformedGames = gamesData.map((game) => {
           // Get the moneyline odds for this game if available
           const gameOdds = allMoneyLineOdds[game.game_id] || {
             home: null,
             away: null,
           };
+
+          // Get the spread odds for this game if available
+          const spreadOdds = allSpreadOdds[game.game_id] || {
+            home: null,
+            away: null,
+          };
+
+          // Get the total odds for this game if available
+          const gameTotals = allGameTotals[game.game_id] || [];
 
           // Transform the game data
           const transformedGame = transformSupabaseGame(game);
@@ -370,6 +405,144 @@ export default function OddsViewerPage() {
             }
           }
 
+          // Update the game with real spread odds data if available
+          if (spreadOdds.home && spreadOdds.away) {
+            // Process home team spread odds
+            const homeOddsMap: Record<string, string> = {};
+            const homeBestOddsMap: Record<string, boolean> = {};
+            const homeLinksMap: Record<string, string> = {};
+
+            // Create a mapping of books to their odds values and best odds flags
+            if (spreadOdds.home.spreads && spreadOdds.home.spreads.length > 0) {
+              const mainSpread = spreadOdds.home.spreads[0]; // Use the first spread as main one
+
+              mainSpread.odds.forEach((odd) => {
+                const formattedOdds =
+                  odd.odds_value > 0
+                    ? `+${odd.odds_value}`
+                    : odd.odds_value.toString();
+                homeOddsMap[odd.book] = formattedOdds;
+
+                if (odd.is_best_odds) {
+                  homeBestOddsMap[odd.book] = true;
+                }
+
+                if (odd.book_link) {
+                  homeLinksMap[odd.book] = odd.book_link;
+                }
+              });
+            }
+
+            // Process away team spread odds
+            const awayOddsMap: Record<string, string> = {};
+            const awayBestOddsMap: Record<string, boolean> = {};
+            const awayLinksMap: Record<string, string> = {};
+
+            if (spreadOdds.away.spreads && spreadOdds.away.spreads.length > 0) {
+              const mainSpread = spreadOdds.away.spreads[0]; // Use the first spread as main one
+
+              mainSpread.odds.forEach((odd) => {
+                const formattedOdds =
+                  odd.odds_value > 0
+                    ? `+${odd.odds_value}`
+                    : odd.odds_value.toString();
+                awayOddsMap[odd.book] = formattedOdds;
+
+                if (odd.is_best_odds) {
+                  awayBestOddsMap[odd.book] = true;
+                }
+
+                if (odd.book_link) {
+                  awayLinksMap[odd.book] = odd.book_link;
+                }
+              });
+            }
+
+            // Get the display values for spreads
+            let homeDisplayValue = "N/A";
+            let awayDisplayValue = "N/A";
+
+            if (
+              spreadOdds.home.spreads &&
+              spreadOdds.home.spreads.length > 0 &&
+              spreadOdds.home.spreads[0].displayValue !== undefined
+            ) {
+              homeDisplayValue =
+                spreadOdds.home.spreads[0].displayValue.toString();
+            }
+
+            if (
+              spreadOdds.away.spreads &&
+              spreadOdds.away.spreads.length > 0 &&
+              spreadOdds.away.spreads[0].displayValue !== undefined
+            ) {
+              awayDisplayValue =
+                spreadOdds.away.spreads[0].displayValue.toString();
+            }
+
+            // Update the game's detailed odds with the real spread data
+            transformedGame.detailedOdds.spread = {
+              home: {
+                MGM: homeOddsMap.MGM || "N/A",
+                FD: homeOddsMap.FD || "N/A",
+                DK: homeOddsMap.DK || "N/A",
+                BR: homeOddsMap.BR || "N/A",
+              },
+              away: {
+                MGM: awayOddsMap.MGM || "N/A",
+                FD: awayOddsMap.FD || "N/A",
+                DK: awayOddsMap.DK || "N/A",
+                BR: awayOddsMap.BR || "N/A",
+              },
+              bestOdds: {
+                home: homeBestOddsMap,
+                away: awayBestOddsMap,
+              },
+              bookLinks: {
+                home: homeLinksMap,
+                away: awayLinksMap,
+              },
+              values: {
+                home: homeDisplayValue,
+                away: awayDisplayValue,
+              },
+              home_group: spreadOdds.home,
+              away_group: spreadOdds.away,
+            };
+
+            // Also update the basic odds summary
+            if (
+              spreadOdds.home.spreads &&
+              spreadOdds.home.spreads.length > 0 &&
+              spreadOdds.away.spreads &&
+              spreadOdds.away.spreads.length > 0
+            ) {
+              transformedGame.odds.spread = `${transformedGame.homeTeam.abbreviation} ${homeDisplayValue}`;
+            }
+          }
+
+          // Initialize basic total odds data structure with empty values
+          // This will be populated more fully by the background fetch
+          transformedGame.detailedOdds.total = {
+            over: {
+              MGM: "N/A",
+              FD: "N/A",
+              DK: "N/A",
+              BR: "N/A",
+            },
+            under: {
+              MGM: "N/A",
+              FD: "N/A",
+              DK: "N/A",
+              BR: "N/A",
+            },
+            pairs: gameTotals,
+            is_player_prop: false,
+          };
+
+          // Set a default total value for display
+          transformedGame.odds.total = `O/U TBD`;
+
           return transformedGame;
         });
 
@@ -377,38 +550,145 @@ export default function OddsViewerPage() {
         const sortedGames = [...transformedGames].sort((a, b) => {
           // Create Date objects for comparison
           const currentYear = new Date().getFullYear();
-          
+
           // Parse date and time strings
           const dateTimeA = `${currentYear} ${a.date} ${a.time}`; // e.g. "2025 Mar 18 7:00 PM"
           const dateTimeB = `${currentYear} ${b.date} ${b.time}`; // e.g. "2025 Mar 18 7:30 PM"
-          
+
           // Create Date objects
           const dateA = new Date(dateTimeA);
           const dateB = new Date(dateTimeB);
-          
+
           // Simple numerical comparison of timestamps
           return dateA.getTime() - dateB.getTime();
         });
-        
+
         console.log("SORTED GAMES", sortedGames);
 
         setGames(sortedGames);
+        setLoading(false);
 
         // Select the first game by default if none is selected
         if (sortedGames.length > 0 && !selectedGameId) {
           setSelectedGameId(sortedGames[0].id);
         }
+
+        // Now fetch totals and player props separately in the background
+        setTotalsLoading(true);
+        setPlayerPropsLoading(true);
+
+        console.log(
+          "Fetching game totals and player props in the background..."
+        );
+
+        // Fetch totals and player props in parallel
+        try {
+          // Use Promise.all to fetch both datasets simultaneously
+          const [allGameTotals, allPlayerProps] = await Promise.all([
+            getBatchTotals(gameIds),
+            getBatchPlayerProps(gameIds),
+          ]);
+
+          console.log("Game total odds:", allGameTotals);
+          console.log("Player props data:", allPlayerProps);
+
+          // Process the totals data first
+          const gamesWithTotals = sortedGames.map((game) => {
+            // Find the corresponding Supabase game to get the game_id
+            const supabaseGame = gamesData.find(
+              (sg) =>
+                parseInt(sg.game_id.substring(0, 8), 16) === game.id ||
+                (sg.home_team === game.homeTeam.name &&
+                  sg.away_team === game.awayTeam.name)
+            );
+
+            if (supabaseGame) {
+              const gameTotals = allGameTotals[supabaseGame.game_id] || [];
+
+              // Deep clone the game to avoid reference issues
+              const updatedGame = JSON.parse(JSON.stringify(game));
+
+              // Update the totals data
+              if (gameTotals.length > 0) {
+                // Find the main total (first one or search for game total if available)
+                const mainTotal =
+                  gameTotals.find(
+                    (total) =>
+                      (total.over && !total.over.is_player_prop) ||
+                      (total.under && !total.under.is_player_prop)
+                  ) || gameTotals[0];
+
+                if (mainTotal && (mainTotal.over || mainTotal.under)) {
+                  // Get the total value
+                  const totalValue =
+                    mainTotal.over?.value || mainTotal.under?.value || 0;
+
+                  // Update both the pairs and the text display
+                  updatedGame.detailedOdds.total = {
+                    ...updatedGame.detailedOdds.total,
+                    pairs: gameTotals,
+                    value: totalValue.toString(),
+                  };
+
+                  // Update the basic odds summary
+                  updatedGame.odds.total = `O/U ${totalValue.toFixed(1)}`;
+                } else {
+                  updatedGame.detailedOdds.total.pairs = gameTotals;
+                }
+              }
+
+              // Now add player props data to the same game object
+              if (allPlayerProps[supabaseGame.game_id]) {
+                // Update with player props data
+                updatedGame.detailedOdds.total.playerPropsData =
+                  allPlayerProps[supabaseGame.game_id];
+
+                // Also store the raw player props for compatibility
+                const playerPropsList: Array<{
+                  over: any | null;
+                  under: any | null;
+                }> = [];
+
+                // Flatten the player props data into a single array
+                const playerPropsData = allPlayerProps[supabaseGame.game_id];
+                Object.keys(playerPropsData.byPlayer).forEach((playerName) => {
+                  const playerProps = playerPropsData.byPlayer[playerName];
+                  Object.keys(playerProps).forEach((category) => {
+                    playerPropsList.push(...(playerProps as any)[category]);
+                  });
+                });
+
+                updatedGame.detailedOdds.total.playerProps = playerPropsList;
+              }
+
+              return updatedGame;
+            }
+
+            return game;
+          });
+
+          // Update the state with the processed data
+          setGames(gamesWithTotals);
+        } catch (error) {
+          console.error("Error fetching game data:", error);
+        } finally {
+          // Make sure to update loading states regardless of outcome
+          setTotalsLoading(false);
+          setPlayerPropsLoading(false);
+        }
       } else {
         console.log("No games found, using mock data");
         setGames(mockGames);
+        setLoading(false);
       }
 
       setLastUpdated(new Date());
     } catch (error) {
       console.error("Error fetching games:", error);
       setError("Failed to fetch game data. Showing sample data instead.");
-    } finally {
       setLoading(false);
+      setTotalsLoading(false);
+      setPlayerPropsLoading(false);
     }
   };
 
@@ -500,7 +780,7 @@ export default function OddsViewerPage() {
         </div>
       </div>
 
-      {/* Right Column - Game Details Placeholder */}
+      {/* Right Column - Game Details */}
       <div className="w-full lg:w-2/3">
         {selectedGame ? (
           <div className="bg-gray-900 text-white rounded-lg shadow-md">
@@ -514,8 +794,67 @@ export default function OddsViewerPage() {
                 </span>
               </div>
             </div>
-            <div className="p-4">
-              <MoneylineOddsGrid selectedGame={selectedGame} />
+
+            {/* Update tabs to include totals view */}
+            <div className="flex border-b border-gray-800">
+              <button
+                className={`flex-1 py-2 px-4 text-center font-medium ${
+                  oddsView === "moneyline"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                }`}
+                onClick={() => setOddsView("moneyline")}
+              >
+                Moneyline
+              </button>
+              <button
+                className={`flex-1 py-2 px-4 text-center font-medium ${
+                  oddsView === "spread"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                }`}
+                onClick={() => setOddsView("spread")}
+              >
+                Spread
+              </button>
+              <button
+                className={`flex-1 py-2 px-4 text-center font-medium ${
+                  oddsView === "total"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                }`}
+                onClick={() => setOddsView("total")}
+              >
+                Totals
+              </button>
+              <button
+                className={`flex-1 py-2 px-4 text-center font-medium ${
+                  oddsView === "playerProps"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                }`}
+                onClick={() => setOddsView("playerProps")}
+              >
+                Player Props
+              </button>
+            </div>
+
+            <div className="p-4 space-y-6">
+              {oddsView === "moneyline" ? (
+                <MoneylineOddsGrid selectedGame={selectedGame} />
+              ) : oddsView === "spread" ? (
+                <SpreadOddsGrid selectedGame={selectedGame} />
+              ) : oddsView === "total" ? (
+                <TotalOddsGrid
+                  selectedGame={selectedGame}
+                  isLoading={totalsLoading}
+                />
+              ) : (
+                <PlayerPropsGrid
+                  selectedGame={selectedGame}
+                  isLoading={playerPropsLoading}
+                />
+              )}
             </div>
           </div>
         ) : (

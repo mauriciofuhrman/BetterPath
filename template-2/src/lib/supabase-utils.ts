@@ -42,6 +42,14 @@ export interface SpreadData {
   value: number;
   is_favorite: boolean;
   odds: OddsData[];
+  displayValue?: number; // Optional display value formatted for UI
+}
+
+export interface SpreadGroupData {
+  team_name: string;
+  opponent: string;
+  is_home: boolean;
+  spreads: SpreadData[]; // List of available spreads for this team
 }
 
 export interface TotalData {
@@ -125,266 +133,6 @@ export const getGames = async (): Promise<Game[]> => {
 };
 
 /**
- * Get moneyline odds for a specific game
- * @param gameId Game ID to get moneyline odds for
- * @returns Promise with moneyline data for home and away teams
- */
-// export const getMoneylineOdds = async (
-//   gameId: string
-// ): Promise<{ home: MoneylineData | null; away: MoneylineData | null }> => {
-//   // Get lines for the specified game with moneyline type
-//   const { data: lines, error: linesError } = await supabase
-//     .from("lines")
-//     .select("*")
-//     .eq("game_id", gameId)
-//     .eq("line_type", "ML")
-//     .eq("is_valid", true);
-
-//   if (linesError || !lines || lines.length === 0) {
-//     console.error(
-//       `Error fetching moneyline lines for game ${gameId}:`,
-//       linesError
-//     );
-//     return { home: null, away: null };
-//   }
-
-//   // Initialize result objects
-//   let homeMoneyline: MoneylineData | null = null;
-//   let awayMoneyline: MoneylineData | null = null;
-
-//   // Process each line
-//   for (const line of lines) {
-//     // Get moneyline details
-//     const { data: moneylineData, error: moneylineError } = await supabase
-//       .from("moneylines")
-//       .select("*")
-//       .eq("line_id", line.line_id);
-
-//     if (moneylineError || !moneylineData || moneylineData.length === 0) {
-//       console.error(
-//         `Error fetching moneyline data for line ${line.line_id}:`,
-//         moneylineError
-//       );
-//       continue;
-//     }
-
-//     // Get odds for this line
-//     const { data: oddsData, error: oddsError } = await supabase
-//       .from("odds")
-//       .select("*")
-//       .eq("line_id", line.line_id)
-//       .eq("is_most_recent", true)
-//       .order("is_best_odds", { ascending: false });
-
-//     if (oddsError) {
-//       console.error(`Error fetching odds for line ${line.line_id}:`, oddsError);
-//       continue;
-//     }
-
-//     const moneyline = moneylineData[0];
-
-//     // Create moneyline object
-//     const moneylineObj: MoneylineData = {
-//       line_id: line.line_id,
-//       team_name: moneyline.team_name,
-//       opponent: moneyline.opponent,
-//       is_home: moneyline.is_home,
-//       is_favorite: moneyline.is_favorite,
-//       odds: oddsData || [],
-//     };
-
-//     // Assign to home or away
-//     if (moneyline.is_home) {
-//       homeMoneyline = moneylineObj;
-//     } else {
-//       awayMoneyline = moneylineObj;
-//     }
-//   }
-
-//   return {
-//     home: homeMoneyline,
-//     away: awayMoneyline,
-//   };
-// };
-
-/**
- * Get spread odds for a specific game
- * @param gameId Game ID to get spread odds for
- * @returns Promise with spread data for home and away teams
- */
-export const getSpreadOdds = async (
-  gameId: string
-): Promise<{ home: SpreadData | null; away: SpreadData | null }> => {
-  // Get lines for the specified game with spread type
-  const { data: lines, error: linesError } = await supabase
-    .from("lines")
-    .select("*")
-    .eq("game_id", gameId)
-    .eq("line_type", "SPREAD")
-    .eq("is_valid", true);
-
-  if (linesError || !lines || lines.length === 0) {
-    console.error(
-      `Error fetching spread lines for game ${gameId}:`,
-      linesError
-    );
-    return { home: null, away: null };
-  }
-
-  // Initialize result objects
-  let homeSpread: SpreadData | null = null;
-  let awaySpread: SpreadData | null = null;
-
-  // Process each line
-  for (const line of lines) {
-    // Get spread details
-    const { data: spreadData, error: spreadError } = await supabase
-      .from("spreads")
-      .select("*")
-      .eq("line_id", line.line_id);
-
-    if (spreadError || !spreadData || spreadData.length === 0) {
-      console.error(
-        `Error fetching spread data for line ${line.line_id}:`,
-        spreadError
-      );
-      continue;
-    }
-
-    // Get odds for this line
-    const { data: oddsData, error: oddsError } = await supabase
-      .from("odds")
-      .select("*")
-      .eq("line_id", line.line_id)
-      .eq("is_most_recent", true)
-      .order("is_best_odds", { ascending: false });
-
-    if (oddsError) {
-      console.error(`Error fetching odds for line ${line.line_id}:`, oddsError);
-      continue;
-    }
-
-    const spread = spreadData[0];
-
-    // Create spread object
-    const spreadObj: SpreadData = {
-      line_id: line.line_id,
-      team_name: spread.team_name,
-      opponent: spread.opponent,
-      is_home: spread.is_home,
-      value: spread.value,
-      is_favorite: spread.is_favorite,
-      odds: oddsData || [],
-    };
-
-    // Assign to home or away
-    if (spread.is_home) {
-      homeSpread = spreadObj;
-    } else {
-      awaySpread = spreadObj;
-    }
-  }
-
-  return {
-    home: homeSpread,
-    away: awaySpread,
-  };
-};
-
-/**
- * Get over/under (total) odds for a specific game
- * @param gameId Game ID to get total odds for
- * @returns Promise with an array of paired over/under data
- */
-export const getTotalOdds = async (
-  gameId: string
-): Promise<Array<{ over: TotalData | null; under: TotalData | null }>> => {
-  // Get lines for the specified game with total type
-  const { data: lines, error: linesError } = await supabase
-    .from("lines")
-    .select("*")
-    .eq("game_id", gameId)
-    .eq("line_type", "TOTAL")
-    .eq("is_valid", true);
-
-  if (linesError || !lines || lines.length === 0) {
-    console.error(`Error fetching total lines for game ${gameId}:`, linesError);
-    return [];
-  }
-
-  // Initialize results object to hold paired over/unders
-  const totalsMap = new Map<
-    string,
-    { over: TotalData | null; under: TotalData | null }
-  >();
-
-  // Process each line
-  for (const line of lines) {
-    // Get over/under details
-    const { data: overUnderData, error: overUnderError } = await supabase
-      .from("over_unders")
-      .select("*")
-      .eq("line_id", line.line_id);
-
-    if (overUnderError || !overUnderData || overUnderData.length === 0) {
-      console.error(
-        `Error fetching over/under data for line ${line.line_id}:`,
-        overUnderError
-      );
-      continue;
-    }
-
-    // Get odds for this line
-    const { data: oddsData, error: oddsError } = await supabase
-      .from("odds")
-      .select("*")
-      .eq("line_id", line.line_id)
-      .eq("is_most_recent", true)
-      .order("is_best_odds", { ascending: false });
-
-    if (oddsError) {
-      console.error(`Error fetching odds for line ${line.line_id}:`, oddsError);
-      continue;
-    }
-
-    const overUnder = overUnderData[0];
-
-    // Create total object
-    const totalObj: TotalData = {
-      line_id: line.line_id,
-      name: overUnder.name,
-      value: overUnder.value,
-      is_over: overUnder.is_over,
-      is_player_prop: overUnder.is_player_prop,
-      category: overUnder.category,
-      odds: oddsData || [],
-    };
-
-    // Use name and value as key to pair overs and unders
-    const key = `${overUnder.name}_${overUnder.value}`;
-
-    if (!totalsMap.has(key)) {
-      // Create an entry with empty data
-      totalsMap.set(key, {
-        over: null,
-        under: null,
-      });
-    }
-
-    // Update the appropriate side
-    const pair = totalsMap.get(key)!; // Non-null assertion, safe because we just checked
-    if (overUnder.is_over) {
-      pair.over = totalObj;
-    } else {
-      pair.under = totalObj;
-    }
-  }
-
-  // Convert map to array for return
-  return Array.from(totalsMap.values());
-};
-
-/**
  * Get all available books (sportsbooks) from the database
  * @returns Promise with array of book names
  */
@@ -424,7 +172,7 @@ export const getAvailableBooks = async (): Promise<string[]> => {
  */
 export const getGameOddsByType = async (
   gameId: string,
-  oddsType: "ML" | "SPREAD" | "TOTAL"
+  oddsType: "ML" | "SPR" | "OU"
 ) => {
   // Query to get specific odds type for a game
   const { data, error } = await supabase
@@ -439,8 +187,7 @@ export const getGameOddsByType = async (
     `
     )
     .eq("game_id", gameId)
-    .eq("line_type", oddsType)
-    .eq("is_valid", true);
+    .eq("line_type", oddsType);
 
   if (error) {
     console.error(`Error fetching ${oddsType} odds for game ${gameId}:`, error);
@@ -482,7 +229,7 @@ export const getGameOddsByType = async (
       break;
     }
 
-    case "SPREAD": {
+    case "SPR": {
       // Group spreads by home/away
       const home = { team_name: "", value: 0, odds: [] };
       const away = { team_name: "", value: 0, odds: [] };
@@ -515,7 +262,7 @@ export const getGameOddsByType = async (
       break;
     }
 
-    case "TOTAL": {
+    case "OU": {
       // Group totals by pairs of over/under
       const totalsMap = new Map<string, { over: any; under: any }>();
 
@@ -575,8 +322,7 @@ export const getBatchMoneylineOdds = async (
     .from("lines")
     .select("*")
     .in("game_id", gameIds)
-    .eq("line_type", "ML")
-    .eq("is_valid", true);
+    .eq("line_type", "ML");
 
   if (linesError || !lines || lines.length === 0) {
     console.error(`Error fetching moneyline lines for games:`, linesError);
@@ -655,6 +401,858 @@ export const getBatchMoneylineOdds = async (
       result[gameId].away = moneylineObj;
     }
   });
+
+  return result;
+};
+
+export const getBatchSpreadOdds = async (
+  gameIds: string[]
+): Promise<
+  Record<string, { home: SpreadGroupData | null; away: SpreadGroupData | null }>
+> => {
+  // Single query to get all spread data with joins
+  const { data, error } = await supabase
+    .from("lines")
+    .select(
+      `
+      *,
+      spreads(*),
+      odds(*)
+    `
+    )
+    .in("game_id", gameIds)
+    .eq("line_type", "SPR")
+    .eq("odds.is_most_recent", true);
+
+  if (error || !data || data.length === 0) {
+    console.error(`Error fetching spread data for games:`, error);
+    return {};
+  }
+
+  // Organize the data by game
+  const result: Record<
+    string,
+    { home: SpreadGroupData | null; away: SpreadGroupData | null }
+  > = {};
+
+  // Initialize result for each game
+  gameIds.forEach((gameId) => {
+    result[gameId] = { home: null, away: null };
+  });
+
+  // Group data by game for easier processing
+  const gameData: Record<string, Array<any>> = {};
+  data.forEach((item) => {
+    if (!gameData[item.game_id]) {
+      gameData[item.game_id] = [];
+    }
+    gameData[item.game_id].push(item);
+  });
+
+  // Process each game
+  for (const gameId in gameData) {
+    const items = gameData[gameId];
+    const teamMap: Record<string, Array<any>> = {};
+
+    // Group by team name
+    items.forEach((item) => {
+      // Handle the spread data which might be an array with one item or an object
+      const spreadData =
+        Array.isArray(item.spreads) && item.spreads.length > 0
+          ? item.spreads[0]
+          : item.spreads;
+
+      if (!spreadData || !spreadData.team_name) return;
+
+      // Initialize the team map entry if it doesn't exist
+      if (!teamMap[spreadData.team_name]) {
+        teamMap[spreadData.team_name] = [];
+      }
+
+      // Ensure odds is always an array
+      const odds = Array.isArray(item.odds) ? item.odds : [item.odds];
+
+      teamMap[spreadData.team_name].push({
+        ...item,
+        spreads: spreadData,
+        odds: odds,
+      });
+    });
+
+    // Find teams involved in this game
+    const teamNames = Object.keys(teamMap);
+    if (teamNames.length < 2) continue; // Skip if we don't have at least 2 teams
+
+    // Determine home and away teams
+    let homeTeam: string | null = null;
+    let awayTeam: string | null = null;
+
+    // Try to infer from the code field if available
+    // Example: "Atlanta Hawks at Charlotte Hornets" - second team is home
+    for (const team of teamNames) {
+      const items = teamMap[team];
+      for (const item of items) {
+        if (
+          item.code &&
+          (item.code.includes(" at ") || item.code.includes(" @ "))
+        ) {
+          const parts = item.code.split(/\s+at\s+|\s+@\s+/);
+          if (parts.length === 2) {
+            if (parts[0].includes(team)) {
+              // This team appears before "at", so it's the away team
+              awayTeam = team;
+              // Try to find the home team from the second part
+              for (const otherTeam of teamNames) {
+                if (otherTeam !== team && parts[1].includes(otherTeam)) {
+                  homeTeam = otherTeam;
+                  break;
+                }
+              }
+              break;
+            } else if (parts[1].includes(team)) {
+              // This team appears after "at", so it's the home team
+              homeTeam = team;
+              // Try to find the away team from the first part
+              for (const otherTeam of teamNames) {
+                if (otherTeam !== team && parts[0].includes(otherTeam)) {
+                  awayTeam = otherTeam;
+                  break;
+                }
+              }
+              break;
+            }
+          }
+        }
+      }
+      if (homeTeam && awayTeam) break;
+    }
+
+    // If we couldn't determine home/away from the code, use an alternative method
+    if (!homeTeam || !awayTeam) {
+      // Just use the first two teams we found, in alphabetical order
+      // This is a fallback and not ideal
+      teamNames.sort();
+      homeTeam = teamNames[0];
+      awayTeam = teamNames[1];
+    }
+
+    // Now create the spread objects for home and away teams with ALL available spread values
+    if (homeTeam && teamMap[homeTeam].length > 0) {
+      const items = teamMap[homeTeam];
+      const spreadItems: SpreadData[] = [];
+
+      // Process all spread options for this team
+      for (const item of items) {
+        const spreadData = item.spreads;
+
+        // Format the display value for UI based on favorite status
+        const displayValue = spreadData.is_favorite
+          ? -Math.abs(spreadData.value) // Negative for favorite
+          : Math.abs(spreadData.value); // Positive for underdog
+
+        // Create individual spread object
+        const spreadObj: SpreadData = {
+          line_id: item.line_id,
+          team_name: spreadData.team_name,
+          opponent: spreadData.opponent,
+          is_home: true,
+          value: spreadData.value,
+          is_favorite: spreadData.is_favorite,
+          odds: item.odds,
+          displayValue: displayValue,
+        };
+
+        spreadItems.push(spreadObj);
+      }
+
+      // Sort spreads by value for easier UI display, favorites first
+      spreadItems.sort((a, b) => {
+        if (a.is_favorite !== b.is_favorite) {
+          return a.is_favorite ? -1 : 1; // Favorites first
+        }
+        // For favorites (negative display values), we want more negative (better for bettor) first
+        // For underdogs (positive display values), we want more positive (better for bettor) first
+        return a.is_favorite
+          ? a.displayValue! - b.displayValue! // Larger negative values first for favorites
+          : b.displayValue! - a.displayValue!; // Larger positive values first for underdogs
+      });
+
+      // Create the spread group for this team
+      result[gameId].home = {
+        team_name: homeTeam,
+        opponent: spreadItems[0].opponent, // Use the first item's opponent
+        is_home: true,
+        spreads: spreadItems,
+      };
+    }
+
+    if (awayTeam && teamMap[awayTeam].length > 0) {
+      const items = teamMap[awayTeam];
+      const spreadItems: SpreadData[] = [];
+
+      // Process all spread options for this team
+      for (const item of items) {
+        const spreadData = item.spreads;
+
+        // Format the display value for UI based on favorite status
+        const displayValue = spreadData.is_favorite
+          ? -Math.abs(spreadData.value) // Negative for favorite
+          : Math.abs(spreadData.value); // Positive for underdog
+
+        // Create individual spread object
+        const spreadObj: SpreadData = {
+          line_id: item.line_id,
+          team_name: spreadData.team_name,
+          opponent: spreadData.opponent,
+          is_home: false,
+          value: spreadData.value,
+          is_favorite: spreadData.is_favorite,
+          odds: item.odds,
+          displayValue: displayValue,
+        };
+
+        spreadItems.push(spreadObj);
+      }
+
+      // Sort spreads by value for easier UI display, favorites first
+      spreadItems.sort((a, b) => {
+        if (a.is_favorite !== b.is_favorite) {
+          return a.is_favorite ? -1 : 1; // Favorites first
+        }
+        // For favorites (negative display values), we want more negative (better for bettor) first
+        // For underdogs (positive display values), we want more positive (better for bettor) first
+        return a.is_favorite
+          ? a.displayValue! - b.displayValue! // Larger negative values first for favorites
+          : b.displayValue! - a.displayValue!; // Larger positive values first for underdogs
+      });
+
+      // Create the spread group for this team
+      result[gameId].away = {
+        team_name: awayTeam,
+        opponent: spreadItems[0].opponent, // Use the first item's opponent
+        is_home: false,
+        spreads: spreadItems,
+      };
+    }
+  }
+
+  return result;
+};
+
+export const getBatchTotals = async (
+  gameIds: string[]
+): Promise<
+  Record<string, Array<{ over: TotalData | null; under: TotalData | null }>>
+> => {
+  // Initialize result object to store the final data organized by game
+  const result: Record<
+    string,
+    Array<{ over: TotalData | null; under: TotalData | null }>
+  > = {};
+
+  // Initialize result for each game
+  gameIds.forEach((gameId) => {
+    result[gameId] = [];
+  });
+
+  try {
+    // STEP 1: Get all over_unders data with pagination (without complex joins)
+    const overUnders: Record<string, any> = {}; // lineId -> over_under data
+    const lineIdToGameId: Record<string, string> = {}; // lineId -> gameId mapping
+    const linesByValue: Record<
+      string,
+      Array<{ lineId: string; isOver: boolean; value: number }>
+    > = {};
+
+    let hasMoreData = true;
+    let page = 0;
+    const pageSize = 500;
+
+    console.log(`Fetching over_unders data for ${gameIds.length} games...`);
+
+    while (hasMoreData) {
+      // Get line records first (much lighter query)
+      const { data: lines, error: linesError } = await supabase
+        .from("lines")
+        .select("line_id, game_id")
+        .in("game_id", gameIds)
+        .eq("line_type", "OU")
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (linesError || !lines || lines.length === 0) {
+        if (linesError) {
+          console.error("Error fetching lines:", linesError);
+        }
+        hasMoreData = false;
+        break;
+      }
+
+      // Get the line IDs from this batch
+      const lineIds = lines.map((line) => line.line_id);
+
+      // Map line IDs to game IDs for later use
+      lines.forEach((line) => {
+        lineIdToGameId[line.line_id] = line.game_id;
+      });
+
+      // Now get over_unders data for these line IDs
+      const { data: ouData, error: ouError } = await supabase
+        .from("over_unders")
+        .select("*")
+        .in("line_id", lineIds)
+        .eq("is_player_prop", false);
+
+      if (ouError) {
+        console.error("Error fetching over_unders:", ouError);
+        page++;
+        continue;
+      }
+
+      if (!ouData || ouData.length === 0) {
+        page++;
+        if (lines.length < pageSize) {
+          hasMoreData = false;
+        }
+        continue;
+      }
+
+      // Store over_unders data by line ID
+      ouData.forEach((ou) => {
+        overUnders[ou.line_id] = ou;
+
+        // Group by value for pairing over/unders
+        const gameId = lineIdToGameId[ou.line_id];
+        const key = `${gameId}_${ou.value}`;
+
+        if (!linesByValue[key]) {
+          linesByValue[key] = [];
+        }
+
+        linesByValue[key].push({
+          lineId: ou.line_id,
+          isOver: ou.is_over,
+          value: ou.value,
+        });
+      });
+
+      // Move to next page
+      page++;
+      if (lines.length < pageSize) {
+        hasMoreData = false;
+      }
+
+      console.log(
+        `Processed page ${page}, found ${ouData.length} over_unders records`
+      );
+    }
+
+    // STEP 2: Fetch odds for all the over_unders we found
+    const lineIds = Object.keys(overUnders);
+    const odds: Record<string, OddsData[]> = {}; // lineId -> odds array
+
+    if (lineIds.length > 0) {
+      console.log(`Fetching odds for ${lineIds.length} lines...`);
+
+      // Process in chunks to avoid hitting query limits
+      const chunkSize = 100;
+      for (let i = 0; i < lineIds.length; i += chunkSize) {
+        const chunk = lineIds.slice(i, i + chunkSize);
+
+        const { data: oddsData, error: oddsError } = await supabase
+          .from("odds")
+          .select("*")
+          .in("line_id", chunk)
+          .eq("is_most_recent", true);
+
+        if (oddsError) {
+          console.error(
+            `Error fetching odds for chunk ${i / chunkSize + 1}:`,
+            oddsError
+          );
+          continue;
+        }
+
+        if (!oddsData) continue;
+
+        // Group odds by line ID
+        oddsData.forEach((odd) => {
+          if (!odds[odd.line_id]) {
+            odds[odd.line_id] = [];
+          }
+          odds[odd.line_id].push(odd);
+        });
+
+        console.log(
+          `Processed odds chunk ${i / chunkSize + 1}, found ${
+            oddsData.length
+          } odds`
+        );
+      }
+    }
+
+    // STEP 3: Build the final data structure by pairing over/unders with the same value
+    console.log(
+      `Building final data structure from ${
+        Object.keys(linesByValue).length
+      } value groups...`
+    );
+
+    Object.keys(linesByValue).forEach((key) => {
+      const [gameId, _] = key.split("_");
+      const lines = linesByValue[key];
+
+      if (!lines || lines.length === 0) return;
+
+      // Find the over and under lines for this value
+      const overLine = lines.find((l) => l.isOver);
+      const underLine = lines.find((l) => !l.isOver);
+
+      let overData: TotalData | null = null;
+      let underData: TotalData | null = null;
+
+      // Create TotalData objects if we have the data
+      if (overLine && overUnders[overLine.lineId]) {
+        const ou = overUnders[overLine.lineId];
+        overData = {
+          line_id: overLine.lineId,
+          name: ou.name,
+          value: ou.value,
+          is_over: true,
+          is_player_prop: false,
+          category: ou.category,
+          odds: odds[overLine.lineId] || [],
+        };
+      }
+
+      if (underLine && overUnders[underLine.lineId]) {
+        const ou = overUnders[underLine.lineId];
+        underData = {
+          line_id: underLine.lineId,
+          name: ou.name,
+          value: ou.value,
+          is_over: false,
+          is_player_prop: false,
+          category: ou.category,
+          odds: odds[underLine.lineId] || [],
+        };
+      }
+
+      // Only add to result if we have at least one side
+      if (overData || underData) {
+        result[gameId].push({ over: overData, under: underData });
+      }
+    });
+
+    // Sort results for each game
+    gameIds.forEach((gameId) => {
+      if (result[gameId] && result[gameId].length > 0) {
+        result[gameId].sort((a, b) => {
+          const valueA = a.over?.value || a.under?.value || 0;
+          const valueB = b.over?.value || b.under?.value || 0;
+          return valueA - valueB;
+        });
+      }
+    });
+
+    console.log(`Successfully processed totals for ${gameIds.length} games`);
+  } catch (error) {
+    console.error("Error in getBatchGameTotals:", error);
+  }
+
+  return result;
+};
+
+export interface PlayerPropsByCategory {
+  pts: Array<{ over: TotalData | null; under: TotalData | null }>;
+  rebs: Array<{ over: TotalData | null; under: TotalData | null }>;
+  asts: Array<{ over: TotalData | null; under: TotalData | null }>;
+  blks: Array<{ over: TotalData | null; under: TotalData | null }>;
+  stls: Array<{ over: TotalData | null; under: TotalData | null }>;
+  threes: Array<{ over: TotalData | null; under: TotalData | null }>;
+  tos: Array<{ over: TotalData | null; under: TotalData | null }>;
+  pts_rebs: Array<{ over: TotalData | null; under: TotalData | null }>;
+  pts_asts: Array<{ over: TotalData | null; under: TotalData | null }>;
+  asts_rebs: Array<{ over: TotalData | null; under: TotalData | null }>;
+  pts_rebs_asts: Array<{ over: TotalData | null; under: TotalData | null }>;
+  stls_blks: Array<{ over: TotalData | null; under: TotalData | null }>;
+  other: Array<{ over: TotalData | null; under: TotalData | null }>;
+}
+
+export interface PlayerPropsData {
+  byPlayer: Record<string, PlayerPropsByCategory>;
+  allCategories: string[];
+  allPlayers: string[];
+}
+
+export const getBatchPlayerProps = async (
+  gameIds: string[]
+): Promise<Record<string, PlayerPropsData>> => {
+  // Initialize result object to store the final data organized by game
+  const result: Record<string, PlayerPropsData> = {};
+
+  // Initialize result for each game
+  gameIds.forEach((gameId) => {
+    result[gameId] = {
+      byPlayer: {},
+      allCategories: [],
+      allPlayers: [],
+    };
+  });
+
+  try {
+    // STEP 1: Get all player prop data with pagination (without complex joins)
+    const overUnders: Record<string, any> = {}; // lineId -> over_under data
+    const lineIdToGameId: Record<string, string> = {}; // lineId -> gameId mapping
+    const linesByNameAndValue: Record<
+      string,
+      Array<{
+        lineId: string;
+        isOver: boolean;
+        value: number;
+        name: string;
+        category: string;
+      }>
+    > = {};
+
+    // Set to keep track of unique categories and players across all games
+    const categoriesSet = new Set<string>();
+    const playersByGame: Record<string, Set<string>> = {};
+
+    let hasMoreData = true;
+    let page = 0;
+    const pageSize = 500;
+
+    console.log(`Fetching player props data for ${gameIds.length} games...`);
+
+    while (hasMoreData) {
+      // Get line records first (much lighter query)
+      const { data: lines, error: linesError } = await supabase
+        .from("lines")
+        .select("line_id, game_id")
+        .in("game_id", gameIds)
+        .eq("line_type", "OU")
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (linesError || !lines || lines.length === 0) {
+        if (linesError) {
+          console.error("Error fetching lines:", linesError);
+        }
+        hasMoreData = false;
+        break;
+      }
+
+      // Get the line IDs from this batch
+      const lineIds = lines.map((line) => line.line_id);
+
+      // Map line IDs to game IDs for later use
+      lines.forEach((line) => {
+        lineIdToGameId[line.line_id] = line.game_id;
+
+        // Initialize player set for this game if not exists
+        if (!playersByGame[line.game_id]) {
+          playersByGame[line.game_id] = new Set<string>();
+        }
+      });
+
+      // Now get over_unders data for these line IDs - specifically player props
+      const { data: ouData, error: ouError } = await supabase
+        .from("over_unders")
+        .select("*")
+        .in("line_id", lineIds)
+        .eq("is_player_prop", true);
+
+      if (ouError) {
+        console.error("Error fetching player props:", ouError);
+        page++;
+        continue;
+      }
+
+      if (!ouData || ouData.length === 0) {
+        page++;
+        if (lines.length < pageSize) {
+          hasMoreData = false;
+        }
+        continue;
+      }
+
+      // Store over_unders data by line ID
+      ouData.forEach((ou) => {
+        overUnders[ou.line_id] = ou;
+
+        // Track the category
+        if (ou.category) {
+          categoriesSet.add(ou.category);
+        }
+
+        // Extract player name from the prop name
+        const propName = ou.name || "";
+        const propParts = propName.split(" ");
+
+        // Common stat abbreviations that might appear at the end of the prop name
+        const statAbbreviations = [
+          "PTS",
+          "AST",
+          "REB",
+          "BLK",
+          "STL",
+          "3PT",
+          "3PM",
+          "TO",
+          "PRA",
+          "PR",
+          "PA",
+          "RA",
+          "SB",
+        ];
+
+        // Check if the last part is a stat type
+        const lastPart = propParts[propParts.length - 1];
+        const isLastPartStatType = statAbbreviations.includes(lastPart);
+
+        // If the last part is a stat type, exclude it; otherwise keep the full name
+        const playerName = isLastPartStatType
+          ? propParts.slice(0, -1).join(" ")
+          : propParts.join(" ");
+
+        // For consistent category identification, determine the prop type
+        const propType = isLastPartStatType ? lastPart : "OTHER";
+
+        // Add player to the set for this game
+        const gameId = lineIdToGameId[ou.line_id];
+        if (playersByGame[gameId]) {
+          playersByGame[gameId].add(playerName);
+        }
+
+        // Group by player name, prop type, and value for pairing over/unders
+        const key = `${gameId}_${playerName}_${propType}_${ou.value}`;
+
+        if (!linesByNameAndValue[key]) {
+          linesByNameAndValue[key] = [];
+        }
+
+        linesByNameAndValue[key].push({
+          lineId: ou.line_id,
+          isOver: ou.is_over,
+          value: ou.value,
+          name: ou.name,
+          category: ou.category || "other",
+        });
+      });
+
+      // Move to next page
+      page++;
+      if (lines.length < pageSize) {
+        hasMoreData = false;
+      }
+
+      console.log(
+        `Processed page ${page}, found ${ouData.length} player prop records`
+      );
+    }
+
+    // STEP 2: Fetch odds for all the player props we found
+    const lineIds = Object.keys(overUnders);
+    const odds: Record<string, OddsData[]> = {}; // lineId -> odds array
+
+    if (lineIds.length > 0) {
+      console.log(`Fetching odds for ${lineIds.length} player prop lines...`);
+
+      // Process in chunks to avoid hitting query limits
+      const chunkSize = 100;
+      for (let i = 0; i < lineIds.length; i += chunkSize) {
+        const chunk = lineIds.slice(i, i + chunkSize);
+
+        const { data: oddsData, error: oddsError } = await supabase
+          .from("odds")
+          .select("*")
+          .in("line_id", chunk)
+          .eq("is_most_recent", true);
+
+        if (oddsError) {
+          console.error(
+            `Error fetching odds for chunk ${i / chunkSize + 1}:`,
+            oddsError
+          );
+          continue;
+        }
+
+        if (!oddsData) continue;
+
+        // Group odds by line ID
+        oddsData.forEach((odd) => {
+          if (!odds[odd.line_id]) {
+            odds[odd.line_id] = [];
+          }
+          odds[odd.line_id].push(odd);
+        });
+
+        console.log(
+          `Processed odds chunk ${i / chunkSize + 1}, found ${
+            oddsData.length
+          } odds for player props`
+        );
+      }
+    }
+
+    // STEP 3: Build the final data structure by pairing over/unders with the same name and value
+    console.log(
+      `Building final player props data structure from ${
+        Object.keys(linesByNameAndValue).length
+      } groups...`
+    );
+
+    // Convert categories set to array
+    const allCategories = Array.from(categoriesSet);
+
+    Object.keys(linesByNameAndValue).forEach((key) => {
+      const [gameId, ...rest] = key.split("_");
+      const lines = linesByNameAndValue[key];
+
+      if (!lines || lines.length === 0) return;
+
+      // Find the over and under lines for this prop
+      const overLine = lines.find((l) => l.isOver);
+      const underLine = lines.find((l) => !l.isOver);
+
+      let overData: TotalData | null = null;
+      let underData: TotalData | null = null;
+
+      // Create TotalData objects if we have the data
+      if (overLine && overUnders[overLine.lineId]) {
+        const ou = overUnders[overLine.lineId];
+        overData = {
+          line_id: overLine.lineId,
+          name: ou.name,
+          value: ou.value,
+          is_over: true,
+          is_player_prop: true,
+          category: ou.category || "other",
+          odds: odds[overLine.lineId] || [],
+        };
+      }
+
+      if (underLine && overUnders[underLine.lineId]) {
+        const ou = overUnders[underLine.lineId];
+        underData = {
+          line_id: underLine.lineId,
+          name: ou.name,
+          value: ou.value,
+          is_over: false,
+          is_player_prop: true,
+          category: ou.category || "other",
+          odds: odds[underLine.lineId] || [],
+        };
+      }
+
+      // Only add to result if we have at least one side
+      if (overData || underData) {
+        // Extract player name from the prop name
+        const propName = overData?.name || underData?.name || "";
+        const propParts = propName.split(" ");
+
+        // Common stat abbreviations that might appear at the end of the prop name
+        const statAbbreviations = [
+          "PTS",
+          "AST",
+          "REB",
+          "BLK",
+          "STL",
+          "3PT",
+          "3PM",
+          "TO",
+          "PRA",
+          "PR",
+          "PA",
+          "RA",
+          "SB",
+        ];
+
+        // Check if the last part is a stat type
+        const lastPart = propParts[propParts.length - 1];
+        const isLastPartStatType = statAbbreviations.includes(lastPart);
+
+        // If the last part is a stat type, exclude it; otherwise keep the full name
+        const playerName = isLastPartStatType
+          ? propParts.slice(0, -1).join(" ")
+          : propParts.join(" ");
+
+        // For consistent category identification, determine the prop type
+        const propType = isLastPartStatType ? lastPart : "OTHER";
+
+        // Get the category
+        const category = (overData?.category ||
+          underData?.category ||
+          "other") as keyof PlayerPropsByCategory;
+
+        // Initialize player data if not exists
+        if (!result[gameId].byPlayer[playerName]) {
+          result[gameId].byPlayer[playerName] = {
+            pts: [],
+            rebs: [],
+            asts: [],
+            blks: [],
+            stls: [],
+            threes: [],
+            tos: [],
+            pts_rebs: [],
+            pts_asts: [],
+            asts_rebs: [],
+            pts_rebs_asts: [],
+            stls_blks: [],
+            other: [],
+          };
+        }
+
+        // Add the prop to the appropriate category
+        if (category in result[gameId].byPlayer[playerName]) {
+          (result[gameId].byPlayer[playerName] as any)[category].push({
+            over: overData,
+            under: underData,
+          });
+        } else {
+          // If category doesn't match any of our defined ones, put in "other"
+          result[gameId].byPlayer[playerName].other.push({
+            over: overData,
+            under: underData,
+          });
+        }
+      }
+    });
+
+    // Sort props by value within each category and add player/category lists to each game
+    gameIds.forEach((gameId) => {
+      // Sort each category for each player
+      const gameData = result[gameId];
+
+      // Set the list of all categories found in this game
+      gameData.allCategories = allCategories;
+
+      // Set the list of all players found in this game
+      gameData.allPlayers = Array.from(playersByGame[gameId] || []).sort();
+
+      // For each player, sort each category by value
+      Object.keys(gameData.byPlayer).forEach((player) => {
+        const playerData = gameData.byPlayer[player];
+
+        // Sort each category by prop value
+        (Object.keys(playerData) as Array<keyof PlayerPropsByCategory>).forEach(
+          (category) => {
+            playerData[category].sort((a, b) => {
+              const valueA = a.over?.value || a.under?.value || 0;
+              const valueB = b.over?.value || b.under?.value || 0;
+              return valueA - valueB;
+            });
+          }
+        );
+      });
+    });
+
+    console.log(
+      `Successfully processed player props for ${gameIds.length} games`
+    );
+  } catch (error) {
+    console.error("Error in getBatchPlayerProps:", error);
+  }
 
   return result;
 };

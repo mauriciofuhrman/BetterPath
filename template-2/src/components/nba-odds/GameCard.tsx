@@ -68,7 +68,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, isActive, onClick }) => {
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-gray-300 pt-2 border-t border-gray-700">
+      {/* <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-gray-300 pt-2 border-t border-gray-700">
         <div>
           <div className="text-gray-500">Spread</div>
           <div>{game.odds.spread || "N/A"}</div>
@@ -81,7 +81,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, isActive, onClick }) => {
           <div className="text-gray-500">ML</div>
           <div>{game.odds.moneyline || "N/A"}</div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };

@@ -28,11 +28,37 @@ export interface DetailedOdds {
   spread: {
     away: BookOdds;
     home: BookOdds;
+    bestOdds?: {
+      home: Record<string, boolean>;
+      away: Record<string, boolean>;
+    };
+    bookLinks?: {
+      home: Record<string, string>;
+      away: Record<string, string>;
+    };
+    values?: {
+      home: string;
+      away: string;
+    };
+    home_group?: any;
+    away_group?: any;
   };
   total: {
     over: BookOdds;
     under: BookOdds;
     is_player_prop?: boolean;
+    bestOdds?: {
+      over: Record<string, boolean>;
+      under: Record<string, boolean>;
+    };
+    bookLinks?: {
+      over: Record<string, string>;
+      under: Record<string, string>;
+    };
+    value?: string;
+    pairs?: Array<{ over: any | null; under: any | null }>;
+    playerProps?: Array<{ over: any | null; under: any | null }>;
+    playerPropsData?: any;
   };
   moneyline: {
     away: BookOdds;
