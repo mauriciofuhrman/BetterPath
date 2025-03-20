@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useAuth } from "@/hooks/use-auth";
 
 interface AnimatedTitleProps {
   titleSize?: "sm" | "md" | "lg";
@@ -12,6 +13,11 @@ export function AnimatedTitle({
   className = "",
   containerWidth = "max-w-4xl",
 }: AnimatedTitleProps) {
+  const { isLoggedIn } = useAuth();
+
+  // Determine the link target based on login status
+  const linkTarget = isLoggedIn ? "/dashboard" : "/";
+
   const titleSizes = {
     sm: "text-2xl md:text-3xl",
     md: "text-4xl md:text-5xl",
@@ -52,7 +58,7 @@ export function AnimatedTitle({
   };
 
   return (
-    <Link href="/">
+    <Link href={linkTarget}>
       <div
         className={`relative flex flex-col items-center w-full ${containerWidth} ${className}`}
       >
