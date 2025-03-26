@@ -10,6 +10,8 @@ export type BookOdds = {
   FD: string;
   DK: string;
   BR: string;
+  ESPN: string;
+  Fanatics: string;
 };
 
 export interface BetOption {

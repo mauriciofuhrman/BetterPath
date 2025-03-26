@@ -182,6 +182,8 @@ const transformSupabaseGame = (supaGame: SupabaseGame): Game => {
     FD: "N/A",
     DK: "N/A",
     BR: "N/A",
+    ESPN: "N/A",
+    Fanatics: "N/A",
   };
 
   // Always set status to "Upcoming" since we don't want to show it
@@ -366,12 +368,16 @@ export default function OddsViewerPage() {
                 FD: homeOddsMap.FD || "N/A",
                 DK: homeOddsMap.DK || "N/A",
                 BR: homeOddsMap.BR || "N/A",
+                ESPN: homeOddsMap.ESPN || "N/A",
+                Fanatics: homeOddsMap.Fanatics || "N/A",
               },
               away: {
                 MGM: awayOddsMap.MGM || "N/A",
                 FD: awayOddsMap.FD || "N/A",
                 DK: awayOddsMap.DK || "N/A",
                 BR: awayOddsMap.BR || "N/A",
+                ESPN: awayOddsMap.ESPN || "N/A",
+                Fanatics: awayOddsMap.Fanatics || "N/A",
               },
               bestOdds: {
                 home: homeBestOddsMap,
@@ -487,12 +493,16 @@ export default function OddsViewerPage() {
                 FD: homeOddsMap.FD || "N/A",
                 DK: homeOddsMap.DK || "N/A",
                 BR: homeOddsMap.BR || "N/A",
+                ESPN: homeOddsMap.ESPN || "N/A",
+                Fanatics: homeOddsMap.Fanatics || "N/A",
               },
               away: {
                 MGM: awayOddsMap.MGM || "N/A",
                 FD: awayOddsMap.FD || "N/A",
                 DK: awayOddsMap.DK || "N/A",
                 BR: awayOddsMap.BR || "N/A",
+                ESPN: awayOddsMap.ESPN || "N/A",
+                Fanatics: awayOddsMap.Fanatics || "N/A",
               },
               bestOdds: {
                 home: homeBestOddsMap,
@@ -529,12 +539,16 @@ export default function OddsViewerPage() {
               FD: "N/A",
               DK: "N/A",
               BR: "N/A",
+              ESPN: "N/A",
+              Fanatics: "N/A",
             },
             under: {
               MGM: "N/A",
               FD: "N/A",
               DK: "N/A",
               BR: "N/A",
+              ESPN: "N/A",
+              Fanatics: "N/A",
             },
             pairs: gameTotals,
             is_player_prop: false,

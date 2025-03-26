@@ -1,102 +1,352 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { Calculator, ChevronDown, Filter, ArrowDownUp } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
+import { getArbitrageData, ArbitrageOpportunity } from "@/lib/supabase-utils";
+
+// BlurredContent component
+const BlurredContent = ({ message }: { message: string }) => (
+  <div className="relative">
+    <div className="absolute inset-0 backdrop-blur-md flex items-center justify-center z-10">
+      <div className="bg-white/80 p-6 rounded-lg shadow-lg max-w-md text-center">
+        <h3 className="text-xl font-bold mb-2">Subscription Required</h3>
+        <p className="mb-4">{message}</p>
+        <Link href="/signup">
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors">
+            Sign Up Now
+          </Button>
+        </Link>
+      </div>
+    </div>
+  </div>
+);
 
 export default function NormalArbitragePage() {
   const { isLoggedIn, isLoading } = useAuth();
-  const [formData, setFormData] = useState({
-    outcome1Odds: "",
-    outcome2Odds: "",
-    bankroll: "",
-    oddsType: "american",
-  });
-  const [results, setResults] = useState({
-    bet1Amount: 0,
-    bet2Amount: 0,
-    guaranteedProfit: 0,
-    roi: 0,
-  });
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+  // State for filters
+  const [selectedSports, setSelectedSports] = useState<string[]>([]);
+  const [selectedSportsbooks, setSelectedSportsbooks] = useState<string[]>([]);
+  const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
+  const [sortByArbitrage, setSortByArbitrage] = useState(true);
+
+  // State for modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedOpportunity, setSelectedOpportunity] =
+    useState<ArbitrageOpportunity | null>(null);
+  const [totalWager, setTotalWager] = useState("1000");
+
+  // Add a new state variable to track whether to use rounded values
+  const [useRoundedWager, setUseRoundedWager] = useState(false);
+  const [roundedSecondWager, setRoundedSecondWager] = useState("0.00");
+
+  // State for the arbitrage data
+  const [arbitrageData, setArbitrageData] = useState<{
+    opportunities: ArbitrageOpportunity[];
+    sports: string[];
+    sportsbooks: string[];
+    events: string[];
+  }>({
+    opportunities: [],
+    sports: [],
+    sportsbooks: [],
+    events: [],
+  });
+  const [isDataLoading, setIsDataLoading] = useState(false);
+
+  // Fetch arbitrage data when component mounts
+  useEffect(() => {
+    async function fetchData() {
+      if (isLoggedIn) {
+        setIsDataLoading(true);
+        try {
+          const filters = {
+            sports: selectedSports.length > 0 ? selectedSports : undefined,
+            sportsbooks:
+              selectedSportsbooks.length > 0 ? selectedSportsbooks : undefined,
+            events: selectedEvents.length > 0 ? selectedEvents : undefined,
+          };
+          const data = await getArbitrageData(
+            // Only include filters if they have values
+            Object.keys(filters).length > 0 ? filters : undefined
+          );
+          setArbitrageData(data);
+        } catch (error) {
+          console.error("Error fetching arbitrage data:", error);
+        } finally {
+          setIsDataLoading(false);
+        }
+      }
+    }
+
+    fetchData();
+  }, [isLoggedIn, selectedSports, selectedSportsbooks, selectedEvents]);
+
+  // Filter and sort the data based on selections
+  const filteredData = arbitrageData.opportunities
+    .filter(
+      (item) =>
+        (selectedSports.length === 0 ||
+          selectedSports.some(
+            (sport) => sport.toUpperCase() === item.sport.toUpperCase()
+          )) &&
+        (selectedEvents.length === 0 || selectedEvents.includes(item.event)) &&
+        (selectedSportsbooks.length === 0 ||
+          item.lines.some((line) =>
+            selectedSportsbooks.includes(line.sportsbook)
+          ))
+    )
+    .sort((a, b) => {
+      if (sortByArbitrage) {
+        return b.profit - a.profit; // Sort by descending profit
+      }
+      return 0; // No sorting
+    });
+
+  // Handle opening the modal with a specific opportunity
+  const handleOpenModal = (opportunity: ArbitrageOpportunity) => {
+    setSelectedOpportunity(opportunity);
+    setIsModalOpen(true);
+    // Reset rounding when opening a new opportunity
+    setUseRoundedWager(false);
   };
 
-  const calculateOptimalStakes = () => {
-    // Simple implementation - in a real app, this would have more robust calculations
-    const outcome1Odds = parseFloat(formData.outcome1Odds);
-    const outcome2Odds = parseFloat(formData.outcome2Odds);
-    const bankroll = parseFloat(formData.bankroll);
-
-    if (isNaN(outcome1Odds) || isNaN(outcome2Odds) || isNaN(bankroll)) {
-      return;
-    }
-
-    let decimal1 = 0;
-    let decimal2 = 0;
-
-    // Convert to decimal odds
-    if (formData.oddsType === "american") {
-      // Convert American odds to decimal
-      decimal1 =
-        outcome1Odds > 0
-          ? outcome1Odds / 100 + 1
-          : 100 / Math.abs(outcome1Odds) + 1;
-
-      decimal2 =
-        outcome2Odds > 0
-          ? outcome2Odds / 100 + 1
-          : 100 / Math.abs(outcome2Odds) + 1;
+  // Convert American odds to decimal format
+  const convertOddsToDecimal = (americanOdds: string) => {
+    const odds = Number.parseInt(
+      americanOdds.replace("+", "").replace("-", "")
+    );
+    if (americanOdds.startsWith("+")) {
+      return 1 + odds / 100;
     } else {
-      // Already decimal odds
-      decimal1 = outcome1Odds;
-      decimal2 = outcome2Odds;
+      return 1 + 100 / odds;
     }
+  };
+
+  // Calculate optimal wager distribution
+  const calculateWagers = () => {
+    if (!selectedOpportunity || !totalWager) return { wager1: 0, wager2: 0 };
+
+    const line1 = selectedOpportunity.lines[0];
+    const line2 = selectedOpportunity.lines[1];
+
+    // Convert American odds to decimal
+    const decimal1 = convertOddsToDecimal(line1.odds);
+    const decimal2 = convertOddsToDecimal(line2.odds);
 
     // Calculate implied probabilities
     const impliedProb1 = 1 / decimal1;
     const impliedProb2 = 1 / decimal2;
-    const totalImpliedProb = impliedProb1 + impliedProb2;
 
-    // Check if arbitrage opportunity exists
-    if (totalImpliedProb >= 1) {
-      // No arbitrage opportunity
-      setResults({
-        bet1Amount: 0,
-        bet2Amount: 0,
-        guaranteedProfit: 0,
-        roi: 0,
-      });
-      return;
+    // Calculate wager proportions
+    const totalImpliedProb = impliedProb1 + impliedProb2;
+    const proportion1 = impliedProb2 / totalImpliedProb;
+    const proportion2 = impliedProb1 / totalImpliedProb;
+
+    // Calculate wager amounts
+    const wager1 = Number.parseFloat(totalWager) * proportion1;
+    const wager2 = Number.parseFloat(totalWager) * proportion2;
+
+    // Calculate potential profit
+    const profit = wager1 * decimal1 - Number.parseFloat(totalWager);
+
+    return {
+      wager1: wager1.toFixed(2),
+      wager2: wager2.toFixed(2),
+      profit: profit.toFixed(2),
+      roi: ((profit / Number.parseFloat(totalWager)) * 100).toFixed(2),
+    };
+  };
+
+  // Update the calculateSecondWager function to handle rounded values
+  const calculateSecondWager = () => {
+    if (
+      !selectedOpportunity ||
+      !totalWager ||
+      isNaN(Number.parseFloat(totalWager))
+    )
+      return "0.00";
+
+    const wager1 = Number.parseFloat(totalWager);
+    const odds1 = selectedOpportunity.lines[0].odds;
+    const odds2 = selectedOpportunity.lines[1].odds;
+
+    const decimal1 = convertOddsToDecimal(odds1);
+    const decimal2 = convertOddsToDecimal(odds2);
+
+    const wager2 = (wager1 * decimal1) / decimal2;
+
+    if (useRoundedWager) {
+      return roundedSecondWager;
     }
 
-    // Calculate optimal stakes
-    const bet1Amount = (bankroll * impliedProb1) / totalImpliedProb;
-    const bet2Amount = (bankroll * impliedProb2) / totalImpliedProb;
-
-    // Calculate guaranteed profit
-    const profit1 = bet1Amount * decimal1 - bankroll;
-    const profit2 = bet2Amount * decimal2 - bankroll;
-
-    // Use the smaller profit as the guaranteed profit (should be very close)
-    const guaranteedProfit = Math.min(profit1, profit2);
-    const roi = (guaranteedProfit / bankroll) * 100;
-
-    setResults({
-      bet1Amount: Math.round(bet1Amount * 100) / 100,
-      bet2Amount: Math.round(bet2Amount * 100) / 100,
-      guaranteedProfit: Math.round(guaranteedProfit * 100) / 100,
-      roi: Math.round(roi * 10) / 10,
-    });
+    return wager2.toFixed(2);
   };
+
+  // Update the calculatePayout function to use the rounded value when appropriate
+  const calculatePayout = (betIndex: number) => {
+    if (
+      !selectedOpportunity ||
+      !totalWager ||
+      isNaN(Number.parseFloat(totalWager))
+    )
+      return 0;
+
+    const wager1 = Number.parseFloat(totalWager);
+    let wager2 = Number.parseFloat(calculateSecondWager());
+
+    if (useRoundedWager && betIndex === 1) {
+      wager2 = Number.parseFloat(roundedSecondWager);
+    }
+
+    const odds1 = selectedOpportunity.lines[0].odds;
+    const odds2 = selectedOpportunity.lines[1].odds;
+
+    const decimal1 = convertOddsToDecimal(odds1);
+    const decimal2 = convertOddsToDecimal(odds2);
+
+    if (betIndex === 0) {
+      return wager1 * decimal1;
+    } else {
+      return wager2 * decimal2;
+    }
+  };
+
+  // Calculate implied probability from American odds
+  const calculateImpliedProbability = (betIndex: number) => {
+    if (!selectedOpportunity) return 0;
+
+    const odds = selectedOpportunity.lines[betIndex].odds;
+    const oddsValue = Number.parseInt(odds.replace("+", "").replace("-", ""));
+
+    if (odds.startsWith("+")) {
+      return 100 / (oddsValue + 100);
+    } else {
+      return oddsValue / (oddsValue + 100);
+    }
+  };
+
+  // Calculate devigged probabilities
+  const calculateDevigged = () => {
+    if (!selectedOpportunity) return [0, 0];
+
+    const prob1 = calculateImpliedProbability(0);
+    const prob2 = calculateImpliedProbability(1);
+
+    const totalProb = prob1 + prob2;
+
+    return [prob1 / totalProb, prob2 / totalProb];
+  };
+
+  // Calculate total devigged probability
+  const calculateTotalDevigged = () => {
+    const devigged = calculateDevigged();
+    return devigged[0] + devigged[1];
+  };
+
+  // Calculate expected payout based on devigged probabilities
+  const calculateExpectedPayout = () => {
+    if (
+      !selectedOpportunity ||
+      !totalWager ||
+      isNaN(Number.parseFloat(totalWager))
+    )
+      return 0;
+
+    const devigged = calculateDevigged();
+    const payout1 = calculatePayout(0);
+    const payout2 = calculatePayout(1);
+
+    return devigged[0] * payout1 + devigged[1] * payout2;
+  };
+
+  // Calculate sum of wagers
+  const calculateSumOfWagers = () => {
+    if (
+      !selectedOpportunity ||
+      !totalWager ||
+      isNaN(Number.parseFloat(totalWager))
+    )
+      return 0;
+
+    const wager1 = Number.parseFloat(totalWager);
+    let wager2 = Number.parseFloat(calculateSecondWager());
+
+    if (useRoundedWager) {
+      wager2 = Number.parseFloat(roundedSecondWager);
+    }
+
+    return wager1 + wager2;
+  };
+
+  // Calculate expected profit
+  const calculateExpectedProfit = () => {
+    return calculateExpectedPayout() - calculateSumOfWagers();
+  };
+
+  // Update the calculateExpectedArbitragePercentage function to use Expected Payout as the denominator
+  const calculateExpectedArbitragePercentage = () => {
+    const expectedPayout = calculateExpectedPayout();
+    if (expectedPayout === 0) return 0;
+
+    return (calculateExpectedProfit() / expectedPayout) * 100;
+  };
+
+  // Update the calculateGuaranteedProfit function to use rounded values
+  const calculateGuaranteedProfit = () => {
+    if (
+      !selectedOpportunity ||
+      !totalWager ||
+      isNaN(Number.parseFloat(totalWager))
+    )
+      return 0;
+
+    const wager1 = Number.parseFloat(totalWager);
+    let wager2 = Number.parseFloat(calculateSecondWager());
+
+    if (useRoundedWager) {
+      wager2 = Number.parseFloat(roundedSecondWager);
+    }
+
+    const payout1 = calculatePayout(0);
+    const payout2 = calculatePayout(1);
+
+    const profit1 = payout1 - (wager1 + wager2);
+    const profit2 = payout2 - (wager1 + wager2);
+
+    return Math.min(profit1, profit2);
+  };
+
+  const wagerCalculations = calculateWagers();
 
   return (
     <main className="flex min-h-screen flex-col bg-black text-white">
@@ -164,165 +414,531 @@ export default function NormalArbitragePage() {
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
             </div>
           ) : !isLoggedIn ? (
-            /* Blurred overlay for non-logged in users */
-            <div className="absolute inset-0 backdrop-blur-md bg-black/40 z-10 rounded-xl flex flex-col items-center justify-center p-8">
-              <h3 className="text-2xl font-bold mb-4 text-center">
-                Unlock the Normal Arbitrage Tool
-              </h3>
-              <p className="text-gray-300 mb-6 text-center max-w-md">
-                Sign up for an account to access our powerful Normal Arbitrage
-                scanner and start finding guaranteed profits today.
-              </p>
-              <Link href="/signup">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-6 text-lg">
-                  Sign Up to Unlock
-                </Button>
-              </Link>
-            </div>
+            <BlurredContent message="Log in or subscribe to view real-time arbitrage opportunities from multiple sportsbooks." />
           ) : null}
 
           {/* Premium content - visible but blurred for non-logged in users */}
           <div
-            className={`bg-gray-900/50 p-8 rounded-xl border ${
-              isLoggedIn ? "border-blue-500/50" : "border-gray-800"
+            className={`relative ${
+              !isLoggedIn ? "opacity-20 pointer-events-none" : ""
             }`}
           >
-            <h2 className="text-2xl font-semibold mb-6">
-              Normal Arbitrage Calculator
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-gray-300 mb-2">
-                    Outcome 1 Odds
-                  </label>
-                  <div className="flex">
-                    <select
-                      name="oddsType"
-                      value={formData.oddsType}
-                      onChange={handleInputChange}
-                      className="bg-gray-800 border border-gray-700 rounded-l p-3 text-white"
-                      disabled={!isLoggedIn}
-                    >
-                      <option value="american">American</option>
-                      <option value="decimal">Decimal</option>
-                      <option value="fraction">Fraction</option>
-                    </select>
-                    <input
-                      type="text"
-                      name="outcome1Odds"
-                      value={formData.outcome1Odds}
-                      onChange={handleInputChange}
-                      className="w-full bg-gray-800 border-y border-r border-gray-700 rounded-r p-3 text-white"
-                      placeholder="+150"
-                      disabled={!isLoggedIn}
-                    />
-                  </div>
+            <div className="container mx-auto px-4 py-6">
+              {/* Filters */}
+              <div className="bg-gray-900/50 mb-6 border border-gray-800 rounded-lg shadow-sm">
+                <div className="p-4 border-b border-gray-800">
+                  <h2 className="text-lg flex items-center text-white">
+                    <Filter className="mr-2 h-5 w-5" />
+                    Filters
+                  </h2>
                 </div>
+                <div className="p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Sport Filter */}
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block text-gray-300">
+                        Sport
+                      </Label>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-between border-gray-700 bg-gray-800 hover:bg-gray-700 text-white"
+                          >
+                            {selectedSports.length === 0
+                              ? "All Sports"
+                              : `${selectedSports.length} selected`}
+                            <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-56 bg-gray-800 border border-gray-700 text-white">
+                          {arbitrageData.sports.map((sport) => (
+                            <DropdownMenuCheckboxItem
+                              key={sport}
+                              checked={selectedSports.includes(sport)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedSports([...selectedSports, sport]);
+                                } else {
+                                  setSelectedSports(
+                                    selectedSports.filter((s) => s !== sport)
+                                  );
+                                }
+                              }}
+                            >
+                              {sport}
+                            </DropdownMenuCheckboxItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
 
-                <div>
-                  <label className="block text-gray-300 mb-2">
-                    Outcome 2 Odds
-                  </label>
-                  <div className="flex">
-                    <select
-                      disabled
-                      className="bg-gray-800 border border-gray-700 rounded-l p-3 text-white"
-                    >
-                      <option value="american">American</option>
-                    </select>
-                    <input
-                      type="text"
-                      name="outcome2Odds"
-                      value={formData.outcome2Odds}
-                      onChange={handleInputChange}
-                      className="w-full bg-gray-800 border-y border-r border-gray-700 rounded-r p-3 text-white"
-                      placeholder="+115"
-                      disabled={!isLoggedIn}
-                    />
+                    {/* Sportsbook Filter */}
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block text-gray-300">
+                        Sportsbooks
+                      </Label>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-between border-gray-700 bg-gray-800 hover:bg-gray-700 text-white"
+                          >
+                            {selectedSportsbooks.length === 0
+                              ? "All Sportsbooks"
+                              : `${selectedSportsbooks.length} selected`}
+                            <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-56 bg-gray-800 border border-gray-700 text-white">
+                          {arbitrageData.sportsbooks.map((book) => (
+                            <DropdownMenuCheckboxItem
+                              key={book}
+                              checked={selectedSportsbooks.includes(book)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedSportsbooks([
+                                    ...selectedSportsbooks,
+                                    book,
+                                  ]);
+                                } else {
+                                  setSelectedSportsbooks(
+                                    selectedSportsbooks.filter(
+                                      (b) => b !== book
+                                    )
+                                  );
+                                }
+                              }}
+                            >
+                              {book}
+                            </DropdownMenuCheckboxItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    {/* Game Filter */}
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block text-gray-300">
+                        Games
+                      </Label>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-between border-gray-700 bg-gray-800 hover:bg-gray-700 text-white"
+                          >
+                            {selectedEvents.length === 0
+                              ? "All Games"
+                              : `${selectedEvents.length} selected`}
+                            <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-56 bg-gray-800 border border-gray-700 text-white max-h-[300px] overflow-y-auto">
+                          {arbitrageData.events.map((event) => (
+                            <DropdownMenuCheckboxItem
+                              key={event}
+                              checked={selectedEvents.includes(event)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedEvents([...selectedEvents, event]);
+                                } else {
+                                  setSelectedEvents(
+                                    selectedEvents.filter((e) => e !== event)
+                                  );
+                                }
+                              }}
+                            >
+                              {event}
+                            </DropdownMenuCheckboxItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-gray-300 mb-2">
-                    Total Bankroll ($)
-                  </label>
-                  <input
-                    type="number"
-                    name="bankroll"
-                    value={formData.bankroll}
-                    onChange={handleInputChange}
-                    className="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white"
-                    placeholder="500"
-                    disabled={!isLoggedIn}
-                  />
-                </div>
-
-                <div className="pt-9">
-                  <Button
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3"
-                    disabled={!isLoggedIn}
-                    onClick={calculateOptimalStakes}
-                  >
-                    Calculate Optimal Stakes
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gray-800/50 p-6 rounded-lg">
-              <h3 className="text-xl font-semibold mb-4">Results</h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-gray-800 p-4 rounded border border-gray-700">
-                  <div className="text-gray-400 mb-1">
-                    Bet Amount (Outcome 1)
-                  </div>
-                  <div className="text-2xl font-bold">
-                    ${results.bet1Amount.toFixed(2)}
-                  </div>
-                </div>
-
-                <div className="bg-gray-800 p-4 rounded border border-gray-700">
-                  <div className="text-gray-400 mb-1">
-                    Bet Amount (Outcome 2)
-                  </div>
-                  <div className="text-2xl font-bold">
-                    ${results.bet2Amount.toFixed(2)}
-                  </div>
-                </div>
-
-                <div className="bg-gray-800 p-4 rounded border border-gray-700">
-                  <div className="text-gray-400 mb-1">Guaranteed Profit</div>
-                  <div className="text-2xl font-bold text-green-500">
-                    ${results.guaranteedProfit.toFixed(2)}
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-800 p-4 rounded border border-gray-700 mb-6">
-                <div className="text-gray-400 mb-1">ROI</div>
-                <div className="text-2xl font-bold">
-                  {results.roi.toFixed(1)}%
-                </div>
-              </div>
-
-              <div className="bg-blue-900/30 p-4 rounded border border-blue-800/50">
-                <h4 className="font-semibold mb-2">Pro Tip</h4>
-                <p className="text-gray-300">
-                  An arbitrage opportunity with a 2%+ ROI is considered very
-                  good. Our live arbitrage scanner continuously monitors odds
-                  across all major sportsbooks to find these opportunities
-                  automatically.
-                </p>
+              {/* Arbitrage Opportunities Table */}
+              <div className="bg-gray-900/50 border border-gray-800 rounded-lg shadow-sm overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-gray-800 border-b border-gray-700">
+                    <TableRow>
+                      <TableHead className="w-1/5 font-semibold text-white">
+                        Event
+                      </TableHead>
+                      <TableHead className="w-1/10 font-semibold text-white">
+                        <div className="flex items-center">
+                          <span>% Arbitrage</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="ml-1 h-6 w-6 text-white hover:bg-gray-700"
+                            onClick={() => setSortByArbitrage(!sortByArbitrage)}
+                          >
+                            <ArrowDownUp className="h-4 w-4" />
+                            <span className="sr-only">Sort by arbitrage</span>
+                          </Button>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-1/10 font-semibold text-white">
+                        Book
+                      </TableHead>
+                      <TableHead className="w-2/5 font-semibold text-white">
+                        Bet Name
+                      </TableHead>
+                      <TableHead className="w-1/5 font-semibold text-white">
+                        Odds
+                      </TableHead>
+                      <TableHead className="w-1/10 font-semibold text-white"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isDataLoading ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={6}
+                          className="h-24 text-center text-gray-500"
+                        >
+                          <div className="flex justify-center">
+                            <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-500"></div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredData.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={6}
+                          className="h-24 text-center text-gray-500"
+                        >
+                          {isLoggedIn
+                            ? "No arbitrage opportunities available right now. Check back later."
+                            : "Log in to view arbitrage opportunities."}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      // Display arbitrage opportunities
+                      filteredData.map((opportunity) => (
+                        <React.Fragment key={opportunity.id}>
+                          {/* First row for first sportsbook */}
+                          <TableRow className="border-b border-gray-800 hover:bg-transparent">
+                            <TableCell
+                              rowSpan={2}
+                              className="align-middle text-white"
+                            >
+                              <div>
+                                <div className="font-medium">
+                                  {opportunity.event}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  {opportunity.game_date} •{" "}
+                                  {opportunity.game_time}
+                                </div>
+                                {/* Add bet type indicator if not moneyline */}
+                                {opportunity.bet !== "Moneyline" && (
+                                  <div className="text-xs text-blue-400 mt-1 font-medium">
+                                    {opportunity.bet}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell
+                              rowSpan={2}
+                              className="align-middle text-center"
+                            >
+                              <Badge className="bg-green-600/20 text-green-400 border-green-500/30">
+                                {opportunity.profit.toFixed(2)}%
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant="outline"
+                                className="border-blue-500/30 text-blue-400 bg-transparent cursor-pointer hover:bg-blue-900/20 transition-colors"
+                                onClick={() => {
+                                  if (opportunity.lines[0].book_link) {
+                                    window.open(
+                                      opportunity.lines[0].book_link,
+                                      "_blank"
+                                    );
+                                  }
+                                }}
+                              >
+                                {opportunity.lines[0].sportsbook}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-gray-300">
+                              {opportunity.lines[0].line}
+                            </TableCell>
+                            <TableCell className="font-medium text-white">
+                              {opportunity.lines[0].odds}
+                            </TableCell>
+                            <TableCell
+                              rowSpan={2}
+                              className="align-middle text-right"
+                            >
+                              <Button
+                                size="sm"
+                                onClick={() => handleOpenModal(opportunity)}
+                                className="bg-blue-600 hover:bg-blue-700"
+                              >
+                                <Calculator className="mr-1 h-4 w-4" />
+                                Calculate
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                          {/* Second row for second sportsbook */}
+                          <TableRow className="border-b border-gray-800 border-dashed hover:bg-transparent">
+                            <TableCell>
+                              <Badge
+                                variant="outline"
+                                className="border-blue-500/30 text-blue-400 bg-transparent cursor-pointer hover:bg-blue-900/20 transition-colors"
+                                onClick={() => {
+                                  if (opportunity.lines[1].book_link) {
+                                    window.open(
+                                      opportunity.lines[1].book_link,
+                                      "_blank"
+                                    );
+                                  }
+                                }}
+                              >
+                                {opportunity.lines[1].sportsbook}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-gray-300">
+                              {opportunity.lines[1].line}
+                            </TableCell>
+                            <TableCell className="font-medium text-white">
+                              {opportunity.lines[1].odds}
+                            </TableCell>
+                          </TableRow>
+                        </React.Fragment>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </div>
           </div>
         </section>
       </div>
+
+      {/* Arbitrage Calculator Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-md bg-gray-900 border border-gray-700 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-blue-400">
+              Arbitrage Calculator
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Calculate optimal wager distribution for this arbitrage
+              opportunity.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedOpportunity && (
+            <div className="space-y-4 py-2">
+              <div className="space-y-1">
+                <h3 className="font-medium text-white">
+                  {selectedOpportunity.event}
+                </h3>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className="border-green-500/30 text-green-400 bg-transparent"
+                  >
+                    {selectedOpportunity.bet}
+                  </Badge>
+                  <p className="text-sm text-gray-400">
+                    {selectedOpportunity.game_date} •{" "}
+                    {selectedOpportunity.game_time}
+                  </p>
+                </div>
+              </div>
+
+              <Separator className="bg-gray-700" />
+
+              <div className="space-y-3">
+                {selectedOpportunity.lines.map((line, index) => (
+                  <div key={index} className="flex justify-between">
+                    <div>
+                      <Badge
+                        variant="outline"
+                        className="mr-2 border-blue-500/30 text-blue-400 bg-transparent cursor-pointer hover:bg-blue-900/20 transition-colors"
+                        onClick={() => {
+                          if (line.book_link) {
+                            window.open(line.book_link, "_blank");
+                          }
+                        }}
+                      >
+                        {line.sportsbook}
+                      </Badge>
+                      <span className="text-sm text-gray-300">{line.line}</span>
+                    </div>
+                    <span className="font-medium text-white">{line.odds}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-800/50 p-3 rounded-md border border-gray-700">
+                  <Label htmlFor="wager1" className="text-sm text-gray-300">
+                    Wager on {selectedOpportunity.lines[0].sportsbook} ($)
+                  </Label>
+                  <Input
+                    id="wager1"
+                    type="number"
+                    value={totalWager}
+                    onChange={(e) => {
+                      setTotalWager(e.target.value);
+                      // Reset rounding when changing wager
+                      setUseRoundedWager(false);
+                    }}
+                    className="mt-1 bg-gray-800 border-gray-700 text-white focus-visible:ring-blue-500"
+                  />
+                </div>
+
+                <div className="bg-gray-800/50 p-3 rounded-md border border-gray-700">
+                  <div className="flex justify-between items-center mb-1">
+                    <Label htmlFor="wager2" className="text-sm text-gray-300">
+                      Wager on {selectedOpportunity.lines[1].sportsbook} ($)
+                    </Label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-xs border-blue-500/30 text-blue-400 hover:bg-gray-700"
+                      onClick={() => {
+                        // Calculate the optimal wager for the second bet
+                        const wager1 = Number.parseFloat(totalWager);
+                        if (isNaN(wager1)) return;
+
+                        const odds1 = selectedOpportunity.lines[0].odds;
+                        const odds2 = selectedOpportunity.lines[1].odds;
+
+                        const decimal1 = convertOddsToDecimal(odds1);
+                        const decimal2 = convertOddsToDecimal(odds2);
+
+                        const wager2 = (wager1 * decimal1) / decimal2;
+
+                        // Round to nearest $5
+                        const roundedWager2 = Math.round(wager2 / 5) * 5;
+
+                        // Update the state
+                        setRoundedSecondWager(roundedWager2.toFixed(2));
+                        setUseRoundedWager(true);
+                      }}
+                    >
+                      Round to $5
+                    </Button>
+                  </div>
+                  <div className="flex items-center">
+                    <Input
+                      id="wager2"
+                      type="text"
+                      value={
+                        useRoundedWager
+                          ? roundedSecondWager
+                          : calculateSecondWager()
+                      }
+                      readOnly
+                      className="mt-1 bg-gray-800 border-gray-700 text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <Separator className="bg-gray-700" />
+
+              <div className="space-y-3">
+                <h4 className="font-medium text-sm text-gray-300">
+                  Payout Information
+                </h4>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-800/50 p-3 rounded-md border border-gray-700">
+                    <p className="text-xs text-gray-400 mb-1">
+                      {selectedOpportunity.lines[0].sportsbook} Payout
+                    </p>
+                    <p className="font-bold text-blue-400">
+                      ${calculatePayout(0).toFixed(2)}
+                    </p>
+                  </div>
+
+                  <div className="bg-gray-800/50 p-3 rounded-md border border-gray-700">
+                    <p className="text-xs text-gray-400 mb-1">
+                      {selectedOpportunity.lines[1].sportsbook} Payout
+                    </p>
+                    <p className="font-bold text-blue-400">
+                      ${calculatePayout(1).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-gray-800/50 p-3 rounded-md border border-gray-700">
+                  <div>
+                    <p className="text-xs text-gray-400 mb-2">
+                      Devigged Probability
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <p className="text-sm font-medium text-gray-300">
+                        {selectedOpportunity.lines[0].sportsbook}:{" "}
+                        {calculateDevigged()[0].toFixed(4)}
+                      </p>
+                      <p className="text-sm font-medium text-gray-300">
+                        {selectedOpportunity.lines[1].sportsbook}:{" "}
+                        {calculateDevigged()[1].toFixed(4)}
+                      </p>
+                    </div>
+                  </div>
+                  <Separator className="bg-gray-700 my-2" />
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-300">
+                      Total Devigged Probability:
+                    </span>
+                    <span className="font-medium text-white">
+                      {calculateTotalDevigged().toFixed(4)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-green-900/20 p-3 rounded-md border border-green-900/30">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-300">
+                      Expected Payout:
+                    </span>
+                    <span className="font-bold text-green-500">
+                      ${calculateExpectedPayout().toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-sm text-gray-300">
+                      Sum of Wagers:
+                    </span>
+                    <span className="font-bold text-green-500">
+                      ${calculateSumOfWagers().toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-sm text-gray-300">
+                      Expected Profit:
+                    </span>
+                    <span className="font-bold text-green-500">
+                      ${calculateExpectedProfit().toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-sm text-gray-300">
+                      Expected Arbitrage %:
+                    </span>
+                    <span className="font-bold text-green-500">
+                      {calculateExpectedArbitragePercentage().toFixed(2)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

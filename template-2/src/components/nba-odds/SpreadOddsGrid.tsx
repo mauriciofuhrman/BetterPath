@@ -2,37 +2,12 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { Game } from "@/lib/types";
 import { SpreadGroupData, SpreadData } from "@/lib/supabase-utils";
+import { SPORTSBOOKS } from "@/lib/constants";
+import SportsBookOddsDisplay from "./SportsBookOddsDisplay";
 
 interface SpreadOddsGridProps {
   selectedGame: Game | null;
 }
-
-const sportsbooks = [
-  {
-    id: "FD",
-    name: "FanDuel",
-    logoPath: "/sportsbook-logos/FanDuel-Logo.png",
-    logoStyle: "brightness(1.5)",
-  },
-  {
-    id: "MGM",
-    name: "BetMGM",
-    logoPath: "/sportsbook-logos/BetMGM-Logo-–-HiRes.png",
-    logoStyle: "", // Already bright enough
-  },
-  {
-    id: "DK",
-    name: "DraftKings",
-    logoPath: "/sportsbook-logos/Draftkings-Logo-PNG-Clipart.png",
-    logoStyle: "", // Already bright enough
-  },
-  {
-    id: "BR",
-    name: "BetRivers",
-    logoPath: "/sportsbook-logos/BetRivers_SB_Horizontal_BlueDrop_RGB.png",
-    logoStyle: "brightness(1.5)",
-  },
-];
 
 // Function to calculate implied probability from odds
 const calculateImpliedProbability = (odds: number): number => {
@@ -99,13 +74,13 @@ const SpreadOddsGrid: React.FC<SpreadOddsGridProps> = ({ selectedGame }) => {
 
   if (!homeSpreadGroup?.spreads || !awaySpreadGroup?.spreads) {
     return (
-      <div className="bg-[#ffffff] text-gray-800 rounded-lg shadow-md overflow-hidden">
-        <div className="bg-[#326fff] p-4">
+      <div className="bg-white rounded-xl shadow-xl overflow-hidden border border-gray-100">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-500 p-4">
           <h2 className="text-xl font-bold text-center text-white">
             Spread Odds
           </h2>
         </div>
-        <div className="p-8 text-center">
+        <div className="p-8 text-center text-gray-700">
           No spread odds available for this game.
         </div>
       </div>
@@ -163,31 +138,45 @@ const SpreadOddsGrid: React.FC<SpreadOddsGridProps> = ({ selectedGame }) => {
     setSelectedSpreadIndex(parseInt(e.target.value));
   };
 
+  // Function to find odds for a specific sportsbook
+  const findOddsForBook = (bookId: string) => {
+    if (!currentSpread || !currentSpread.odds) return null;
+    return currentSpread.odds.find((odd) => odd.book === bookId);
+  };
+
+  // Function to format odds value
+  const formatOddsValue = (bookOdds: any) => {
+    return bookOdds.odds_value > 0
+      ? `+${bookOdds.odds_value}`
+      : bookOdds.odds_value.toString();
+  };
+
   return (
-    <div className="bg-[#ffffff] text-gray-800 rounded-lg shadow-md overflow-hidden">
-      <div className="bg-[#326fff] p-4">
+    <div className="bg-white rounded-xl shadow-xl overflow-hidden border border-gray-100">
+      {/* Header with gradient background */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-500 p-4">
         <h2 className="text-xl font-bold text-center text-white">
           Spread Odds
         </h2>
       </div>
 
       {/* Team Selection */}
-      <div className="grid grid-cols-2 gap-2 p-4 border-b border-gray-200">
+      <div className="grid grid-cols-2 gap-2 p-4 border-b border-gray-100">
         <button
-          className={`py-2 px-4 rounded-md font-semibold ${
+          className={`py-2 px-4 rounded-md font-semibold transition-all ${
             selectedTeam === "home"
               ? "bg-blue-500 text-white"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
           }`}
           onClick={() => setSelectedTeam("home")}
         >
           {homeTeam.name}
         </button>
         <button
-          className={`py-2 px-4 rounded-md font-semibold ${
+          className={`py-2 px-4 rounded-md font-semibold transition-all ${
             selectedTeam === "away"
               ? "bg-blue-500 text-white"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
           }`}
           onClick={() => setSelectedTeam("away")}
         >
@@ -197,7 +186,7 @@ const SpreadOddsGrid: React.FC<SpreadOddsGridProps> = ({ selectedGame }) => {
 
       {/* Spread Slider */}
       {sortedSpreads.length > 0 && (
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-100">
           <div className="flex justify-between mb-2">
             <div className="text-sm font-medium text-gray-500">
               Lower Spread
@@ -263,93 +252,15 @@ const SpreadOddsGrid: React.FC<SpreadOddsGridProps> = ({ selectedGame }) => {
 
       {/* Odds Display */}
       {currentSpread && (
-        <div className="p-4">
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            <div className="font-medium text-center">Sportsbook</div>
-            <div className="font-medium text-center">Odds</div>
-          </div>
-
-          {sportsbooks.map((book) => {
-            // Find odds for this sportsbook
-            const bookOdds = currentSpread.odds.find(
-              (odd) => odd.book === book.id
-            );
-
-            if (!bookOdds) {
-              return (
-                <div
-                  key={book.id}
-                  className="grid grid-cols-2 items-center py-2 border-b border-gray-200"
-                >
-                  <div className="relative h-8 w-24 lg:w-32">
-                    <Image
-                      src={book.logoPath}
-                      alt={`${book.name} logo`}
-                      fill
-                      className="object-contain object-left"
-                      style={{
-                        filter: book.logoStyle ? book.logoStyle : "none",
-                      }}
-                    />
-                  </div>
-                  <div className="text-center text-gray-500">N/A</div>
-                </div>
-              );
-            }
-
-            // Format the odds value
-            const formattedOdds =
-              bookOdds.odds_value > 0
-                ? `+${bookOdds.odds_value}`
-                : bookOdds.odds_value.toString();
-
-            return (
-              <div
-                key={book.id}
-                className="grid grid-cols-2 items-center py-2 border-b border-gray-200"
-              >
-                <div className="relative h-8 w-24 lg:w-32">
-                  <Image
-                    src={book.logoPath}
-                    alt={`${book.name} logo`}
-                    fill
-                    className="object-contain object-left"
-                    style={{
-                      filter: book.logoStyle ? book.logoStyle : "none",
-                    }}
-                  />
-                </div>
-                <div className="text-center">
-                  {bookOdds.book_link ? (
-                    <button
-                      onClick={() => handleBetClick(bookOdds.book_link!)}
-                      className={`py-1 px-3 rounded font-medium text-lg hover:bg-gray-100 transition-colors ${
-                        bookOdds.is_best_odds
-                          ? "text-green-500"
-                          : "text-blue-500"
-                      }`}
-                    >
-                      {formattedOdds}
-                    </button>
-                  ) : (
-                    <span
-                      className={`py-1 px-3 rounded font-medium text-lg ${
-                        bookOdds.is_best_odds
-                          ? "text-green-500"
-                          : "text-blue-500"
-                      }`}
-                    >
-                      {formattedOdds}
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <SportsBookOddsDisplay
+          oddsData={currentSpread}
+          findOddsForBook={findOddsForBook}
+          formatOddsValue={formatOddsValue}
+          onBetClick={handleBetClick}
+        />
       )}
 
-      <div className="p-4 flex flex-col items-center text-xs text-gray-500">
+      <div className="p-4 flex flex-col items-center text-sm text-gray-500">
         <div className="flex items-center gap-2 mb-1">
           <span className="inline-block w-3 h-3 bg-green-500 rounded-full"></span>
           <span>Best available odds</span>

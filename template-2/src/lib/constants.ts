@@ -1,28 +1,40 @@
 // Sportsbook definitions
 export const SPORTSBOOKS = [
   {
-    id: "MGM",
-    name: "BetMGM",
-    color: "#002960",
-    textColor: "#ffffff",
-  },
-  {
     id: "FD",
     name: "FanDuel",
-    color: "#1493ff",
-    textColor: "#ffffff",
+    logoPath: "/sportsbook-logos/FanDuel-Logo.png",
+    logoStyle: "brightness(1.5)",
+  },
+  {
+    id: "MGM",
+    name: "BetMGM",
+    logoPath: "/sportsbook-logos/BetMGM-Logo-–-HiRes.png",
+    logoStyle: "", // Already bright enough
   },
   {
     id: "DK",
     name: "DraftKings",
-    color: "#000000",
-    textColor: "#ffffff",
+    logoPath: "/sportsbook-logos/Draftkings-Logo-PNG-Clipart.png",
+    logoStyle: "", // Already bright enough
   },
   {
     id: "BR",
-    name: "Bet Rivers",
-    color: "#f47b20",
-    textColor: "#ffffff",
+    name: "BetRivers",
+    logoPath: "/sportsbook-logos/BetRivers_SB_Horizontal_BlueDrop_RGB.png",
+    logoStyle: "brightness(1.5)",
+  },
+  {
+    id: "ESPN",
+    name: "ESPN BET",
+    logoPath: "/sportsbook-logos/ESPN-BET-Logo-Primary-1352x1080.jpg",
+    logoStyle: "brightness(1.5)",
+  },
+  {
+    id: "Fanatics",
+    name: "Fanatics",
+    logoPath: "/sportsbook-logos/fanatics-bet-logo.png",
+    logoStyle: "", // Assuming it's bright enough
   },
 ];
 

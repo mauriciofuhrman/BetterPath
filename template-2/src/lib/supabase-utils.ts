@@ -62,6 +62,32 @@ export interface TotalData {
   odds: OddsData[];
 }
 
+export interface ArbitrageLine {
+  sportsbook: string;
+  line: string;
+  odds: string;
+  book_link?: string;
+}
+
+export interface ArbitrageOpportunity {
+  id: string;
+  game_id: string;
+  event: string;
+  sport: string;
+  profit: number;
+  bet: string;
+  game_time: string;
+  game_date: string;
+  lines: ArbitrageLine[];
+}
+
+export interface ArbitrageData {
+  opportunities: ArbitrageOpportunity[];
+  sports: string[];
+  sportsbooks: string[];
+  events: string[];
+}
+
 /**
  * Get games within the appropriate time window (4PM UTC to 4AM UTC next day)
  * @returns Promise with games data
@@ -1256,3 +1282,305 @@ export const getBatchPlayerProps = async (
 
   return result;
 };
+
+/**
+ * Get arbitrage opportunities from the materialized view in a single query
+ * @param filters Optional filters for sports, sportsbooks, etc.
+ * @returns All data needed for the arbitrage page, including opportunities and filter options
+ */
+export const getArbitrageData = async (filters?: {
+  sports?: string[];
+  sportsbooks?: string[];
+  events?: string[];
+}): Promise<ArbitrageData> => {
+  try {
+    // Start building the query
+    let query = supabase
+      .from("arbitrage_opportunities")
+      .select("*")
+      .order("arb_opportunity", { ascending: false });
+
+    // Apply filters if provided
+    if (filters) {
+      if (filters.sports && filters.sports.length > 0) {
+        // Convert all sport filters to lowercase for case-insensitive comparison
+        const lowerCaseSports = filters.sports.map((sport) =>
+          sport.toLowerCase()
+        );
+        query = query.in("league", lowerCaseSports);
+      }
+
+      if (filters.sportsbooks && filters.sportsbooks.length > 0) {
+        // This needs special handling since we have book1 and book2
+        query = query.or(
+          `book1.in.(${filters.sportsbooks.join(
+            ","
+          )}),book2.in.(${filters.sportsbooks.join(",")})`
+        );
+      }
+
+      if (filters.events && filters.events.length > 0) {
+        query = query.in("game_name", filters.events);
+      }
+    }
+
+    // Fetch the arbitrage opportunities
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Error fetching arbitrage opportunities:", error);
+      return { opportunities: [], sports: [], sportsbooks: [], events: [] };
+    }
+
+    if (!data || data.length === 0) {
+      return { opportunities: [], sports: [], sportsbooks: [], events: [] };
+    }
+
+    // Extract unique sports, sportsbooks, and events
+    const sportSet = new Set<string>();
+    const bookSet = new Set<string>();
+    const eventSet = new Set<string>();
+
+    // Transform to the expected structure for the UI
+    const opportunities: ArbitrageOpportunity[] = data.map((item) => {
+      // Add to sets for unique values
+      if (item.league) {
+        // Store the sports in a consistent format (uppercase for display)
+        sportSet.add(item.league.toUpperCase());
+      }
+
+      if (item.book1) {
+        bookSet.add(item.book1);
+      }
+
+      if (item.book2) {
+        bookSet.add(item.book2);
+      }
+
+      if (item.game_name) {
+        eventSet.add(item.game_name);
+      }
+
+      // Format the profit percentage (arb_opportunity represents the profit in percentage)
+      const profit = parseFloat(item.arb_opportunity);
+
+      // Generate a unique ID for this opportunity
+      const id = `${item.line_id1}_${item.line_id2}`;
+
+      // Use line_code to determine what each book is betting on
+      const line1 = getLineName(
+        item.line_code1,
+        item.home_team,
+        item.away_team
+      );
+      const line2 = getLineName(
+        item.line_code2,
+        item.home_team,
+        item.away_team
+      );
+
+      // Determine the type of bet based on the line codes
+      let betType = "Moneyline";
+      if (
+        (item.line_code1.includes("O") && /O\d+\.?\d*/.test(item.line_code1)) ||
+        (item.line_code1.includes("U") && /U\d+\.?\d*/.test(item.line_code1)) ||
+        (item.line_code2.includes("O") && /O\d+\.?\d*/.test(item.line_code2)) ||
+        (item.line_code2.includes("U") && /U\d+\.?\d*/.test(item.line_code2))
+      ) {
+        betType = determineBetType(item.line_code1, item.line_code2);
+      }
+
+      // Create the lines array with both sides of the arbitrage bet
+      const lines: ArbitrageLine[] = [
+        {
+          sportsbook: item.book1,
+          line: line1,
+          odds: formatOdds(item.odds_value1),
+          book_link: item.book_link1,
+        },
+        {
+          sportsbook: item.book2,
+          line: line2,
+          odds: formatOdds(item.odds_value2),
+          book_link: item.book_link2,
+        },
+      ];
+
+      return {
+        id,
+        game_id: item.game_id,
+        event: item.game_name,
+        sport: item.league?.toUpperCase() || "UNKNOWN",
+        profit,
+        bet: betType,
+        game_time: item.game_time,
+        game_date: item.game_date,
+        lines,
+      };
+    });
+
+    // Convert sets to sorted arrays
+    const sports = Array.from(sportSet).sort();
+    const sportsbooks = Array.from(bookSet).sort();
+    const events = Array.from(eventSet).sort();
+
+    return {
+      opportunities,
+      sports,
+      sportsbooks,
+      events,
+    };
+  } catch (error) {
+    console.error("Error in getArbitrageData:", error);
+    return { opportunities: [], sports: [], sportsbooks: [], events: [] };
+  }
+};
+
+/**
+ * Helper function to determine what team or outcome a line represents
+ */
+function getLineName(
+  lineCode: string,
+  homeTeam: string,
+  awayTeam: string
+): string {
+  if (!lineCode) return "Unknown";
+
+  // Check for over/under (totals) bets
+  if (lineCode.includes("O") && /O\d+\.?\d*/.test(lineCode)) {
+    // Match pattern for over bets (e.g., "Indiana Pacers O117.5")
+    const overMatch = lineCode.match(/O(\d+\.?\d*)/);
+    if (overMatch) {
+      // Return the full bet name including team if available
+      const teamPart = lineCode.replace(/O\d+\.?\d*/, "").trim();
+      // Apply formatting to team part if it includes a category
+      const formattedTeamPart = formatBetCategory(teamPart);
+      return formattedTeamPart
+        ? `${formattedTeamPart} Over ${overMatch[1]}`
+        : `Over ${overMatch[1]}`;
+    }
+  }
+
+  if (lineCode.includes("U") && /U\d+\.?\d*/.test(lineCode)) {
+    // Match pattern for under bets (e.g., "Indiana Pacers U117.5")
+    const underMatch = lineCode.match(/U(\d+\.?\d*)/);
+    if (underMatch) {
+      // Return the full bet name including team if available
+      const teamPart = lineCode.replace(/U\d+\.?\d*/, "").trim();
+      // Apply formatting to team part if it includes a category
+      const formattedTeamPart = formatBetCategory(teamPart);
+      return formattedTeamPart
+        ? `${formattedTeamPart} Under ${underMatch[1]}`
+        : `Under ${underMatch[1]}`;
+    }
+  }
+
+  // Simple matching based on team names
+  if (lineCode.includes(homeTeam)) {
+    return homeTeam;
+  } else if (lineCode.includes(awayTeam)) {
+    return awayTeam;
+  } else {
+    // Check if the line code might contain a category to format
+    return formatBetCategory(lineCode);
+  }
+}
+
+/**
+ * Helper function to format bet categories to be more readable
+ */
+function formatBetCategory(betName: string): string {
+  if (!betName) return betName;
+
+  // Map of category abbreviations to readable formats
+  const categoryMap: Record<string, string> = {
+    stls: "Steals",
+    "Home Total": "Home Total",
+    pts_rebs_asts: "Pts+Reb+Ast",
+    asts_rebs: "Ast+Reb",
+    blks: "Blocks",
+    rebs: "Rebounds",
+    pts_rebs: "Pts+Reb",
+    tos: "Turnovers",
+    pts_asts: "Pts+Ast",
+    "Game Total": "Game Total",
+    pts: "Points",
+    stls_blks: "Stl+Blk",
+    "Away Total": "Away Total",
+    asts: "Assists",
+    threes: "Threes",
+  };
+
+  // Check for player names followed by category
+  const parts = betName.split(" ");
+  if (parts.length > 1) {
+    // Check if the last part is a category that needs formatting
+    const lastPart = parts[parts.length - 1];
+    if (lastPart in categoryMap) {
+      // Replace the category with a more readable format
+      parts[parts.length - 1] = categoryMap[lastPart];
+      return parts.join(" ");
+    }
+
+    // Check if there's a pts_rebs_asts or similar pattern
+    for (const [abbr, readable] of Object.entries(categoryMap)) {
+      if (betName.includes(abbr)) {
+        return betName.replace(abbr, readable);
+      }
+    }
+  }
+
+  // Return the original if no formatting was applied
+  return betName;
+}
+
+/**
+ * Helper function to format odds in American format
+ */
+function formatOdds(oddsValue: number): string {
+  return oddsValue >= 0 ? `+${oddsValue}` : `${oddsValue}`;
+}
+
+/**
+ * Helper function to determine the bet type based on line codes
+ */
+function determineBetType(lineCode1: string, lineCode2: string): string {
+  // First check for player props
+  const playerPropCategories = [
+    "pts",
+    "rebs",
+    "asts",
+    "blks",
+    "stls",
+    "threes",
+    "tos",
+    "pts_rebs",
+    "pts_asts",
+    "asts_rebs",
+    "pts_rebs_asts",
+    "stls_blks",
+  ];
+
+  // For each category, check if it appears in either line code
+  for (const category of playerPropCategories) {
+    if (lineCode1.includes(category) || lineCode2.includes(category)) {
+      return formatBetCategory(category);
+    }
+  }
+
+  // Check for team/game totals
+  if (lineCode1.includes("Home Total") || lineCode2.includes("Home Total")) {
+    return "Home Total";
+  }
+
+  if (lineCode1.includes("Away Total") || lineCode2.includes("Away Total")) {
+    return "Away Total";
+  }
+
+  if (lineCode1.includes("Game Total") || lineCode2.includes("Game Total")) {
+    return "Game Total";
+  }
+
+  // If no specific category is found, default to Totals
+  return "Totals";
+}

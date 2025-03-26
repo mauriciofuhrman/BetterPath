@@ -1,44 +1,42 @@
 import React, { useMemo } from "react";
-import dynamic from "next/dynamic";
+import Image from "next/image";
 
-// Define interface for logo component props
-interface LogoComponentProps {
-  size?: number;
-}
+// Map of team abbreviations to file names
+const TEAM_LOGO_MAP: Record<string, string> = {
+  ATL: "AtlantaHawks.png",
+  BOS: "BostonCeltics.png",
+  BKN: "BrooklynNets.png",
+  CHA: "CharlotteHornets.png",
+  CHI: "ChicagoBulls.png",
+  CLE: "ClevelandCavaliers.png",
+  DAL: "DallasMavericks.png",
+  DEN: "DenverNuggets.png",
+  DET: "DetroitPistons.png",
+  GSW: "GoldenStateWarriors.png",
+  HOU: "HoustonRockets.png",
+  IND: "IndianaPacers.png",
+  LAC: "LosAngelesClippers.png",
+  LAL: "LosAngelesLakers.png",
+  MEM: "MemphisGrizzlies.png",
+  MIA: "MiamiHeat.png",
+  MIL: "MilwaukeeBucks.png",
+  MIN: "MinnesotaTimberwolves.png",
+  NOP: "NewOrleansPelicans.png",
+  NYK: "NewYorkKnicks.png",
+  OKC: "OklahomaCityThunder.png",
+  ORL: "OrlandoMagic.png",
+  PHI: "Philadelphia76ers.png",
+  PHX: "PhoenixSuns.png",
+  POR: "PortlandTrailBlazers.png",
+  SAC: "SacramentoKings.png",
+  SAS: "SanAntonioSpurs.png",
+  TOR: "TorontoRaptors.png",
+  UTA: "UtahJazz.png",
+  WAS: "WashingtonWizards.png",
+};
 
-// List of valid NBA team abbreviations in react-nba-logos
-const VALID_ABBREVIATIONS = [
-  "ATL",
-  "BOS",
-  "BKN",
-  "CHA",
-  "CHI",
-  "CLE",
-  "DAL",
-  "DEN",
-  "DET",
-  "GSW",
-  "HOU",
-  "IND",
-  "LAC",
-  "LAL",
-  "MEM",
-  "MIA",
-  "MIL",
-  "MIN",
-  "NOP",
-  "NYK",
-  "OKC",
-  "ORL",
-  "PHI",
-  "PHX",
-  "POR",
-  "SAC",
-  "SAS",
-  "TOR",
-  "UTA",
-  "WAS",
-];
+// List of valid NBA team abbreviations
+const VALID_ABBREVIATIONS = Object.keys(TEAM_LOGO_MAP);
 
 // Default fallback logo component
 const FallbackLogo = ({ size = 40 }: { size?: number }) => (
@@ -57,7 +55,7 @@ export const TeamLogo = ({
   abbreviation: string;
   size?: number;
 }) => {
-  // Ensure abbreviation is valid and exists in react-nba-logos
+  // Ensure abbreviation is valid
   const validAbbreviation = useMemo(() => {
     if (!abbreviation || !VALID_ABBREVIATIONS.includes(abbreviation)) {
       console.warn(`Invalid team abbreviation: ${abbreviation}`);
@@ -66,35 +64,24 @@ export const TeamLogo = ({
     return abbreviation;
   }, [abbreviation]);
 
-  // Use useMemo to cache the component and prevent re-creation on re-renders
-  const LogoComponent = useMemo(() => {
-    if (!validAbbreviation) {
-      return FallbackLogo;
-    }
+  // If no valid abbreviation, return fallback logo
+  if (!validAbbreviation) {
+    return <FallbackLogo size={size} />;
+  }
 
-    return dynamic<LogoComponentProps>(
-      () =>
-        import("react-nba-logos").then((mod) => {
-          const Component = mod[validAbbreviation];
-          if (!Component) {
-            console.error(`Could not load logo for ${validAbbreviation}`);
-            return FallbackLogo;
-          }
-          return Component;
-        }),
-      {
-        loading: () => (
-          <div
-            style={{ width: size, height: size }}
-            className="bg-gray-700 rounded-full animate-pulse"
-          ></div>
-        ),
-        ssr: false,
-      }
-    );
-  }, [validAbbreviation, size]);
+  const logoFileName = TEAM_LOGO_MAP[validAbbreviation];
 
-  return <LogoComponent size={size} />;
+  // Return logo from NBATeams directory
+  return (
+    <div style={{ width: size, height: size }} className="relative">
+      <Image
+        src={`/NBATeams/${logoFileName}`}
+        alt={`${validAbbreviation} logo`}
+        fill
+        className="object-contain"
+      />
+    </div>
+  );
 };
 
 export default TeamLogo;
